@@ -1,32 +1,29 @@
+
 import serial
 import time
+from rclpy.node import Node
+from std_msgs.msg import Int32 
 
-class Servo:
-    def __init__(self, port='/dev/ttyACM0', baud=115200, timeout=1):
-        self.ser = serial.Serial(port, baud, timeout=timeout)
-        time.sleep(2)  # Teensy reset delay
+class Servo(Node):
+    def __init__(self):
 
-        self.ser.reset_input_buffer()
-        self.ser.reset_output_buffer()
+        super().__init__('Servo')
+        self.servo = self.create_publisher(Int32, 'Servo', 10)
+        self.subscription = self.create_subscription(
+            Int32,
+            'servo_angle',
+            self.servo_callback,
+            10
+        )
+ 
 
-        self.last_angle = None
+    def servo_callback(self, msg):
+        self.write(msg.data)
 
-    def write_angle(self, angle: int):
-        """
-        Sends servo angle only if it changed.
-        Prevents spam + jitter.
-        """
-        angle = max(0, min(180, int(angle)))  # clamp safety
+    def write(self, angle):
+        servo_msg = Int32()
+        servo_msg.data = int(max(0, min(360, angle)))
+        self.servo.publish(servo_msg)
 
-        if angle == self.last_angle:
-            return
 
-        msg = f"{angle}\n".encode()
-        self.ser.write(msg)
-        self.last_angle = angle
 
-        print(f"Sent angle: {angle}")
-
-    def close(self):
-        self.ser.close()
-        print("Serial closed")
