@@ -8,11 +8,8 @@ class Motor(Node):
 
     def __init__(self):
         super().__init__("Motor")
-        self.motor = self.create_publisher(Int32, 'Motor', 10)
-        self.subscription = self.create_subscription(Int32, 'motor_speed', self.motor_callback, 10)
+        self.motor = self.create_publisher(Int32, 'motor_speed', 10)
 
-    def motor_callback(self, msg):
-        self.setSpeed(msg.data)
 
     def setSpeed(self, speed):
 
