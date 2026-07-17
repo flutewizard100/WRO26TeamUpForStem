@@ -9,6 +9,7 @@ class GeneralResult:
         self.fiducialResults = [FiducialResult(item) for item in results.get("Fiducial", [])]
         self.retroResults = [RetroreflectiveResult(item) for item in results.get("Retro", [])]
         self.botpose = results.get("botpose", [])
+        self.pythonOutputs = results.get("PythonOut", []) 
         self.botpose_wpiblue = results.get("botpose_wpiblue", [])
         self.botpose_wpired = results.get("botpose_wpired", [])
         self.capture_latency = results.get("cl", 0)
