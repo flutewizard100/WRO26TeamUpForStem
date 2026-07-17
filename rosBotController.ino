@@ -33,7 +33,6 @@ rclc_support_t support;
 rcl_allocator_t allocator;
 rcl_node_t node;
 
-// Direct variable to hold incoming speed targets from ROS
 int target_speed = 1500;
 
 #define RCCHECK(fn) { rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){error_loop();}}
@@ -85,10 +84,9 @@ void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
   myServo.attach(SERVO_PIN);
   myServo.write(90); 
-  
-  // Safe default range limit setup matching your calibration
+
   ESC.attach(MOTOR_PIN, 1000, 2000);
-  ESC.writeMicroseconds(1500); // Startup at safe neutral
+  ESC.writeMicroseconds(1500); 
 
   set_microros_transports();
   delay(2000);
@@ -112,12 +110,12 @@ void setup() {
   ));
 
 
-  RCCHECK(rclc_subscription_init_default(
-    &direction_subscriber,
-    &node,
-    ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Twist),
-    "cmd_vel"
-  ));
+  // RCCHECK(rclc_subscription_init_default(
+  //   &direction_subscriber,
+  //   &node,
+  //   ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Twist),
+  //   "cmd_vel"
+  // ));
 
   RCCHECK(rclc_publisher_init_default(
   &debug_publisher,
@@ -135,10 +133,7 @@ void setup() {
 }
 
 void loop() {
-  // Let the micro-ROS executor process incoming messages
-  RCSOFTCHECK(rclc_executor_spin_some(&executor, RCL_MS_TO_NS(10)));
 
-  // DIRECT PASSTHROUGH TO THE ESC
-  // Updates instantly based on your Python `try/finally` logic safely driving it
+  RCSOFTCHECK(rclc_executor_spin_some(&executor, RCL_MS_TO_NS(10)));
   ESC.writeMicroseconds(target_speed);
 }
