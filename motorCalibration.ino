@@ -3,15 +3,12 @@
 Servo esc;
 
 void setup() {
-  // Open Serial Monitor at 9600 baud
+
   Serial.begin(9600);
 
   delay(5000);
-  
-  // Attach ESC signal to digital pin 9
   esc.attach(9, 1000, 2000);
   
-  // 5-second initial safety delay. 
   Serial.println("===============================================");
   Serial.println("  HOBBYWING WP 1080 G2 CALIBRATION STARTING  ");
   Serial.println("===============================================");
@@ -21,10 +18,7 @@ void setup() {
   Serial.println("4. Release SET button when ESC rapidly flashes red/beeps.");
   Serial.println("\n[COUNTDOWN] You have 5 seconds to enter calibration mode...");
   
-  delay(5000);
-  // ==========================================
-  // STEP 1: NEUTRAL SIGNAL (1500us)
-  // ==========================================
+
   Serial.println("\n-----------------------------------------------");
   Serial.println("[STEP 1/3] Sending NEUTRAL Signal (1500us)...");
   Serial.println("--> CLICK THE PHYSICAL SET BUTTON *ONCE* NOW!");
@@ -38,9 +32,6 @@ void setup() {
   
   Serial.println(">> Step 1 Neutral Finished! Get ready for Step 2.");
 
-  // ==========================================
-  // STEP 2: FULL FORWARD SIGNAL (2000us)
-  // ==========================================
   Serial.println("\n-----------------------------------------------");
   Serial.println("[STEP 2/3] Sending FULL FORWARD Signal (2000us)...");
   Serial.println("--> CLICK THE PHYSICAL SET BUTTON *ONCE* NOW!");
@@ -54,9 +45,6 @@ void setup() {
   
   Serial.println(">> Step 2 Forward Finished! Get ready for Step 3.");
 
-  // ==========================================
-  // STEP 3: FULL REVERSE SIGNAL (1000us)
-  // ==========================================
   Serial.println("\n-----------------------------------------------");
   Serial.println("[STEP 3/3] Sending FULL REVERSE Signal (1000us)...");
   Serial.println("--> CLICK THE PHYSICAL SET BUTTON *ONCE* NOW!");
@@ -68,9 +56,7 @@ void setup() {
     esc.writeMicroseconds(1000);
   }
   
-  // ==========================================
-  // CALIBRATION COMPLETE
-  // ==========================================
+
   Serial.println("\n===============================================");
   Serial.println("         CALIBRATION TIMELINE COMPLETE         ");
   Serial.println("===============================================");
