@@ -1,14 +1,12 @@
-
-from Servo import Servo
+import serial
 import time
-servo = Servo()
+from rclpy.node import Node
+from std_msgs.msg import Int32 
+from geometry_msgs.msg import Twist
+class controller(Node):
+    def __init__(self):
+        super().__init__("controller")
+        self.send = self.create_publisher(Twist, 'cmd_vel', 10)
 
-try:
-    while True:
-        servo.write_angle(179)
-        time.sleep(0.5)
-        servo.write_angle(0)
-        time.sleep(0.5)
-except KeyboardInterrupt:
-    servo.close()
-    print("Stopped cleanly")
+    def sendMovement(self, msg):
+        self.send.publish(msg)
