@@ -33,6 +33,7 @@ rclc_support_t support;
 rcl_allocator_t allocator;
 rcl_node_t node;
 
+// Direct variable to hold incoming speed targets from ROS
 int target_speed = 1500;
 
 #define RCCHECK(fn) { rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){error_loop();}}
@@ -48,11 +49,19 @@ void servo_callback(const void * msvin) {
   const std_msgs__msg__Int32 * msg = (const std_msgs__msg__Int32 *)msvin;
   int angle = msg->data;
   myServo.write(angle);
+
+  debug_msg.data = angle;
+  RCSOFTCHECK(rcl_publish(&debug_publisher, &debug_msg, NULL));
+
 }
 
 void motor_callback(const void * msgin) {
   const std_msgs__msg__Int32 * msg = (const std_msgs__msg__Int32 *)msgin;
   target_speed = msg->data; 
+
+  debug_msg.data = msg->data;
+  RCSOFTCHECK(rcl_publish(&debug_publisher, &debug_msg, NULL));
+  
 }
 
 void keyboard_callback(const void * msgin) {
@@ -84,9 +93,10 @@ void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
   myServo.attach(SERVO_PIN);
   myServo.write(90); 
-
+  
+  // Safe default range limit setup matching your calibration
   ESC.attach(MOTOR_PIN, 1000, 2000);
-  ESC.writeMicroseconds(1500); 
+  ESC.writeMicroseconds(1500); // Startup at safe neutral
 
   set_microros_transports();
   delay(2000);
@@ -110,13 +120,6 @@ void setup() {
   ));
 
 
-  // RCCHECK(rclc_subscription_init_default(
-  //   &direction_subscriber,
-  //   &node,
-  //   ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Twist),
-  //   "cmd_vel"
-  // ));
-
   RCCHECK(rclc_publisher_init_default(
   &debug_publisher,
   &node,
@@ -128,12 +131,14 @@ void setup() {
   RCCHECK(rclc_executor_init(&executor, &support.context, 4, &allocator));
   RCCHECK(rclc_executor_add_subscription(&executor, &servo_subscriber, &servo_msg, &servo_callback, ON_NEW_DATA));
   RCCHECK(rclc_executor_add_subscription(&executor, &motor_subscriber, &motor_msg, &motor_callback, ON_NEW_DATA));
-  RCCHECK(rclc_executor_add_subscription(&executor, &direction_subscriber, &direction_msg, &keyboard_callback, ON_NEW_DATA));
 
 }
 
 void loop() {
-
+  // Let the micro-ROS executor process incoming messages
   RCSOFTCHECK(rclc_executor_spin_some(&executor, RCL_MS_TO_NS(10)));
+
+  // DIRECT PASSTHROUGH TO THE ESC
+  // Updates instantly based on your Python `try/finally` logic safely driving it
   ESC.writeMicroseconds(target_speed);
 }
