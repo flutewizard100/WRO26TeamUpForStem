@@ -51,4 +51,18 @@ class Motor(Node):
         self.setSpeed(1500)
         rclpy.spin_once(self, timeout_sec=0.01)
 
+def main(args=None):
+    rclpy.init(args=args)
 
+    node = Motor()
+
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
+if __name__ == '__main__':
+      main()
