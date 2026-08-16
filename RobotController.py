@@ -11,8 +11,6 @@ class controller(Node):
     def __init__(self):
         super().__init__("controller")
         self.send = self.create_publisher(Twist, 'cmd_vel', 10)
-        self.motor = Motor()
-        self.servo = Servo()
 
     def sendMovement(self, msg):
         self.send.publish(msg)
