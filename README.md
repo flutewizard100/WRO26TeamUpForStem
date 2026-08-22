@@ -31,3 +31,6 @@ base prototype with modification and top plates
 #### For attaching a stronger motor to the base, we removed the top gearbox housing and 3d printed a new one to fit the new, more powerful motor.
 <img width="1200" height="840" alt="httpstraxxas comsitesdefaultfilesimagesproducts7590x" src="https://github.com/user-attachments/assets/7dc44785-77eb-4c4e-9500-2db8c35ddcf7" />
 this image shows the piece that was replaced by this 3d print.
+<img width="850" height="506" alt="Screenshot 2026-08-22 151803" src="https://github.com/user-attachments/assets/1a554cab-41ee-4c50-9005-22be83098bb8" />
+<img width="696" height="713" alt="1Screenshot 2026-08-22 152641" src="https://github.com/user-attachments/assets/929d69d5-c47b-4549-9a1c-7592e7f38e95" />
+
