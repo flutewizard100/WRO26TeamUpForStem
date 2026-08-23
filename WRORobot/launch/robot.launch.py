@@ -19,10 +19,28 @@ def generate_launch_description():
         )
     )
 
+    lidar_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(
+                get_package_share_directory('ldlidar_ros2'),
+                'launch',
+                'ld19.launch.py'
+             )
+        )
+    )
 
+    slam_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(
+                get_package_share_directory('slam_toolbox'),
+                'launch',
+                'online_sync_launch.py'
+            )
+        )
+    )
     return LaunchDescription([
-        
-        
+        slam_launch,
+        lidar_launch,
         imu_launch,
         Node(
             package='tf2_ros',
@@ -37,19 +55,6 @@ def generate_launch_description():
             output='screen'
         ),
 
-
-        Node(
-            package='tf2_ros',
-            executable='static_transform_publisher',
-            name='base_to_laser',
-            arguments=[
-                '0.0', '0.0', '0.0',
-                '0', '0', '0',
-                'base_link',
-                'base_laser'
-            ],
-            output='screen'
-        ),
 
         Node(
             package='WRORobot',
