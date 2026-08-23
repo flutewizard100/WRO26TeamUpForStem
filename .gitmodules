@@ -1,0 +1,3 @@
+[submodule "lsm9ds1_handler"]
+	path = lsm9ds1_handler
+	url = https://github.com/s4gn1k712/lsm9ds1_handler.git
