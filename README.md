@@ -10,7 +10,7 @@
 ### 2.3: LiDar and camera
 ### 2.4: wiring diagram
 ### 3: Software and coding
-### 3.1: souce code
+### 3.1: Code   
 ### 3.2: software
 ### 3.3: electronic boards and other components
 ### 4: Engineering solutions
@@ -35,3 +35,9 @@ base prototype with modification and top plates
 this image shows the piece that was replaced by this 3d print:
 <img width="850" height="506" alt="Screenshot 2026-08-22 151803" src="https://github.com/user-attachments/assets/1a554cab-41ee-4c50-9005-22be83098bb8" />
 <img width="696" height="713" alt="1Screenshot 2026-08-22 152641" src="https://github.com/user-attachments/assets/929d69d5-c47b-4549-9a1c-7592e7f38e95" /> 
+
+
+Layer two & Three
+#### The second layer is much simpler than the first: It consists of a laser-cut, wooden middle plate that holds electronic components like the battery, the on/off switch, and the LiDar.
+It also supports four metal GoBilda axles that hold the top plate. The reason for the material to be wood is that it is easy and fast to laser cut, and that it is abundant so that we have lots of spare material in case the top and middle plates break. 
+The top plate is much like the middle plate; except for the shape and the electronics it holds. It is also made of wood and is laser-cut. It holds the Jetson Nano, Arduino Teensy, and LiDar control board.
