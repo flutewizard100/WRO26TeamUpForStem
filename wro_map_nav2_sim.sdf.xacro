@@ -1,0 +1,240 @@
+<?xml version="1.0"?>
+
+<robot
+  xmlns:xacro="http://www.ros.org/wiki/xacro"
+  name="sft_arena">
+
+  <!-- ====================================================== -->
+  <!-- SETTINGS                                               -->
+  <!-- ====================================================== -->
+
+  <xacro:property name="floor_size" value="3.2"/>
+  <xacro:property name="wall_height" value="0.70"/>
+  <xacro:property name="wall_thickness" value="0.10"/>
+
+  <!-- Wall center is 1.55 m from the arena center -->
+  <xacro:property name="wall_position" value="1.55"/>
+
+
+  <!-- ====================================================== -->
+  <!-- COLORS                                                 -->
+  <!-- ====================================================== -->
+
+  <material name="floor_white">
+    <color rgba="0.95 0.95 0.95 1.0"/>
+  </material>
+
+  <material name="wall_grey">
+    <color rgba="0.70 0.70 0.70 1.0"/>
+  </material>
+
+
+  <!-- ====================================================== -->
+  <!-- ROOT                                                   -->
+  <!-- ====================================================== -->
+
+  <link name="sft_base"/>
+
+
+  <!-- ====================================================== -->
+  <!-- FLOOR / MAT                                            -->
+  <!--                                                        -->
+  <!-- Visual only: there is intentionally no collision here. -->
+  <!-- The normal Gazebo ground plane supports the robot.      -->
+  <!-- ====================================================== -->
+
+  <link name="world_mat">
+
+    <visual name="world_mat_visual">
+      <!--
+        The mat is 0.001 m thick.
+        Its top surface is at z = 0.
+      -->
+      <origin xyz="0 0 -0.0005" rpy="0 0 0"/>
+
+      <geometry>
+        <box size="3.2 3.2 0.001"/>
+      </geometry>
+
+      <material name="floor_white"/>
+    </visual>
+
+  </link>
+
+  <joint name="world_mat_joint" type="fixed">
+    <parent link="sft_base"/>
+    <child link="world_mat"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <gazebo reference="world_mat">
+    <material>Gazebo/White</material>
+  </gazebo>
+
+
+  <!-- ====================================================== -->
+  <!-- NORTH WALL                                             -->
+  <!-- ====================================================== -->
+
+  <link name="north_wall">
+
+    <visual name="north_wall_visual">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+
+      <geometry>
+        <box size="3.2 0.10 0.70"/>
+      </geometry>
+
+      <material name="wall_grey"/>
+    </visual>
+
+    <collision name="north_wall_collision">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+
+      <geometry>
+        <box size="3.2 0.10 0.70"/>
+      </geometry>
+    </collision>
+
+  </link>
+
+  <joint name="north_wall_joint" type="fixed">
+    <parent link="sft_base"/>
+    <child link="north_wall"/>
+
+    <origin
+      xyz="0 ${wall_position} ${wall_height / 2.0}"
+      rpy="0 0 0"/>
+  </joint>
+
+  <gazebo reference="north_wall">
+    <material>Gazebo/Grey</material>
+  </gazebo>
+
+
+  <!-- ====================================================== -->
+  <!-- SOUTH WALL                                             -->
+  <!-- ====================================================== -->
+
+  <link name="south_wall">
+
+    <visual name="south_wall_visual">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+
+      <geometry>
+        <box size="3.2 0.10 0.70"/>
+      </geometry>
+
+      <material name="wall_grey"/>
+    </visual>
+
+    <collision name="south_wall_collision">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+
+      <geometry>
+        <box size="3.2 0.10 0.70"/>
+      </geometry>
+    </collision>
+
+  </link>
+
+  <joint name="south_wall_joint" type="fixed">
+    <parent link="sft_base"/>
+    <child link="south_wall"/>
+
+    <origin
+      xyz="0 -${wall_position} ${wall_height / 2.0}"
+      rpy="0 0 0"/>
+  </joint>
+
+  <gazebo reference="south_wall">
+    <material>Gazebo/Grey</material>
+  </gazebo>
+
+
+  <!-- ====================================================== -->
+  <!-- EAST WALL                                              -->
+  <!-- ====================================================== -->
+
+  <link name="east_wall">
+
+    <visual name="east_wall_visual">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+
+      <geometry>
+        <box size="0.10 3.2 0.70"/>
+      </geometry>
+
+      <material name="wall_grey"/>
+    </visual>
+
+    <collision name="east_wall_collision">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+
+      <geometry>
+        <box size="0.10 3.2 0.70"/>
+      </geometry>
+    </collision>
+
+  </link>
+
+  <joint name="east_wall_joint" type="fixed">
+    <parent link="sft_base"/>
+    <child link="east_wall"/>
+
+    <origin
+      xyz="${wall_position} 0 ${wall_height / 2.0}"
+      rpy="0 0 0"/>
+  </joint>
+
+  <gazebo reference="east_wall">
+    <material>Gazebo/Grey</material>
+  </gazebo>
+
+
+  <!-- ====================================================== -->
+  <!-- WEST WALL                                              -->
+  <!-- ====================================================== -->
+
+  <link name="west_wall">
+
+    <visual name="west_wall_visual">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+
+      <geometry>
+        <box size="0.10 3.2 0.70"/>
+      </geometry>
+
+      <material name="wall_grey"/>
+    </visual>
+
+    <collision name="west_wall_collision">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+
+      <geometry>
+        <box size="0.10 3.2 0.70"/>
+      </geometry>
+    </collision>
+
+  </link>
+
+  <joint name="west_wall_joint" type="fixed">
+    <parent link="sft_base"/>
+    <child link="west_wall"/>
+
+    <origin
+      xyz="-${wall_position} 0 ${wall_height / 2.0}"
+      rpy="0 0 0"/>
+  </joint>
+
+  <gazebo reference="west_wall">
+    <material>Gazebo/Grey</material>
+  </gazebo>
+
+
+  <!-- Make the complete arena immovable in Gazebo -->
+  <gazebo>
+    <static>true</static>
+  </gazebo>
+
+</robot>
