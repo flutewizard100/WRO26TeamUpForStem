@@ -36,8 +36,16 @@ this image shows the piece that was replaced by this 3d print:
 <img width="850" height="506" alt="Screenshot 2026-08-22 151803" src="https://github.com/user-attachments/assets/1a554cab-41ee-4c50-9005-22be83098bb8" />
 <img width="696" height="713" alt="1Screenshot 2026-08-22 152641" src="https://github.com/user-attachments/assets/929d69d5-c47b-4549-9a1c-7592e7f38e95" /> 
 
+#### We also removed the front bumper from the LaTrax Desert Prerunner in order to attach the Limelight camera mount, which was 3d printed like many of the mounts in this autonomous vehicle.
+<img width="257" height="274" alt="Screenshot 2026-08-26 135833" src="https://github.com/user-attachments/assets/7b1241c4-f3d6-4c44-8b40-b53d0bf5ab01" /><img width="925" height="218" alt="333scrnsht" src="https://github.com/user-attachments/assets/daf5569f-b419-4df0-b714-9524a6a3aefe" />
+<img width="976" height="256" alt="222scrnsht" src="https://github.com/user-attachments/assets/2795a3a1-2d3c-48c6-ae20-a284915af7fe" />
+
+these pictures show the limelight mount 3d print.
+
+
+
 
 Layer two & Three
-#### The second layer is much simpler than the first: It consists of a laser-cut, wooden middle plate that holds electronic components like the battery, the on/off switch, and the LiDar.
+#### The second layer is much simpler than the first: It consists of a laser-cut, wooden middle plate that holds electronic components like the battery, the on/off switch, and the LiDAR.
 It also supports four metal GoBilda axles that hold the top plate. The reason for the material to be wood is that it is easy and fast to laser cut, and that it is abundant so that we have lots of spare material in case the top and middle plates break. 
-The top plate is much like the middle plate; except for the shape and the electronics it holds. It is also made of wood and is laser-cut. It holds the Jetson Nano, Arduino Teensy, and LiDar control board.
+The top plate is much like the middle plate; except for the shape and the electronics it holds. It is also made of wood and is laser-cut. It holds the Jetson Nano, Arduino Teensy, and LiDAR control board.
