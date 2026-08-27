@@ -48,4 +48,9 @@ these pictures show the limelight mount 3d print.
 Layer two & Three
 #### The second layer is much simpler than the first: It consists of a laser-cut, wooden middle plate that holds electronic components like the battery, the on/off switch, and the LiDAR.
 It also supports four metal GoBilda axles that hold the top plate. The reason for the material to be wood is that it is easy and fast to laser cut, and that it is abundant so that we have lots of spare material in case the top and middle plates break. 
-The top plate is much like the middle plate; except for the shape and the electronics it holds. It is also made of wood and is laser-cut. It holds the Jetson Nano, Arduino Teensy, and LiDAR control board.
+The top plate is much like the middle plate; except for the shape and the electronics it holds. It is also made of wood and is laser-cut. It holds the Jetson Nano, Arduino Teensy, and LiDAR control board. 
+
+
+Prototype one:
+#### The first prototype has a 3d printed base:<img width="1001" height="543" alt="444scrnsht" src="https://github.com/user-attachments/assets/555a4b37-9475-4010-af31-b2745bed91af" /><img width="1095" height="671" alt="scrnsht555 1" src="https://github.com/user-attachments/assets/19933b24-d5e7-40bb-89eb-9bfe73578e52" />
+
