@@ -54,3 +54,5 @@ The top plate is much like the middle plate; except for the shape and the electr
 Prototype one:
 #### The first prototype has a 3d printed base:<img width="1001" height="543" alt="444scrnsht" src="https://github.com/user-attachments/assets/555a4b37-9475-4010-af31-b2745bed91af" /><img width="1095" height="671" alt="scrnsht555 1" src="https://github.com/user-attachments/assets/19933b24-d5e7-40bb-89eb-9bfe73578e52" />
 
+#### but in the base you see here, there are only mounts for the Jetson Nano and the Arduino Teensy, but no mount for the motor or battery. So, to fix those issues, we 3d printed another base and moved the board mounts to the top plate:
+<img width="1287" height="612" alt="666scrnsht" src="https://github.com/user-attachments/assets/685644a8-46de-48ba-9f4c-13c11f2e182a" />
