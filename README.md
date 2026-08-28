@@ -46,8 +46,7 @@ these pictures show the limelight mount 3d print.
 
 
 Layer two & Three
-#### The second layer is much simpler than the first: It consists of a laser-cut, wooden middle plate that holds electronic components like the battery, the on/off switch, and the LiDAR.
-It also supports four metal GoBilda axles that hold the top plate. The reason for the material to be wood is that it is easy and fast to laser cut, and that it is abundant so that we have lots of spare material in case the top and middle plates break. 
+#### The second layer is much simpler than the first: It consists of a laser-cut, wooden middle plate that holds electronic components like the battery, the on/off switch, and the LiDAR. It also supports four metal GoBilda axles that hold the top plate. The reason for the material to be wood is that it is easy and fast to laser cut, and that it is abundant so that we have lots of spare material in case the top and middle plates break. 
 The top plate is much like the middle plate; except for the shape and the electronics it holds. It is also made of wood and is laser-cut. It holds the Jetson Nano, Arduino Teensy, and LiDAR control board. 
 
 
@@ -61,3 +60,8 @@ Prototype one:
 here is the new prototype for the base:
 <img width="1133" height="780" alt="888 8 screenshot for documentation" src="https://github.com/user-attachments/assets/c4b09b67-02a9-49fe-9cfa-a2dd3fa77241" />
 
+#### There are several reasons, though, to why we did not use this base prototype in the competition. First, the servo for the autonomous vehicle was too weak, and under the circumstances we did not have enough time to create an adapter to a stronger servo. Second, already listed, is the fact that we did not have enough time to perfect the existing prototype or create a new one from scratch, but we were creating a different, remote-controlled-car-based autonomous vehicle, that was used instead. 
+
+1.2: The drivetrain systems
+
+#### The autonomous vehicle uses the standard LaTrax Desert Prerunner four-wheel drive system. It has a rugged build and is mostly made of metal, unmodified from the stock version except for upgraded metal gears and the previously mentioned more powerful motor. In the center of the car runs a thick, metal axle that is rotated via the motor which is positioned on the right side's back corner. The axle leads to two differentials on either end of the car, inside which are positioned four gears each. From the inside of the differential run two axles, one for each side, directly connecting to the wheels, here is a picture to visualize:<img width="1331" height="945" alt="999 9 screenshot" src="https://github.com/user-attachments/assets/e341d3ed-625f-4d2a-a939-19acb13f1c61" />
