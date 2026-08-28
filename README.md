@@ -59,3 +59,5 @@ Prototype one:
 <img width="939" height="607" alt="777 7 screenshots for documentation" src="https://github.com/user-attachments/assets/907cc0f6-ba47-4c27-bd72-e1abde57032f" />
 
 here is the new prototype for the base:
+<img width="1133" height="780" alt="888 8 screenshot for documentation" src="https://github.com/user-attachments/assets/c4b09b67-02a9-49fe-9cfa-a2dd3fa77241" />
+
