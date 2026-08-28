@@ -7,7 +7,7 @@
 ### 2: Electronics
 ### 2.1: motor and ESC
 ### 2.2: servo, steering, and steering controls
-### 2.3: LiDar and camera
+### 2.3: LiDAR and camera
 ### 2.4: wiring diagram
 ### 3: Software and coding
 ### 3.1: Code   
@@ -56,3 +56,6 @@ Prototype one:
 
 #### but in the base you see here, there are only mounts for the Jetson Nano and the Arduino Teensy, but no mount for the motor or battery. So, to fix those issues, we 3d printed another base and moved the board mounts to the top plate:
 <img width="1287" height="612" alt="666scrnsht" src="https://github.com/user-attachments/assets/685644a8-46de-48ba-9f4c-13c11f2e182a" />
+<img width="939" height="607" alt="777 7 screenshots for documentation" src="https://github.com/user-attachments/assets/907cc0f6-ba47-4c27-bd72-e1abde57032f" />
+
+here is the new prototype for the base:
