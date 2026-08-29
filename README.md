@@ -66,7 +66,7 @@ here is the new prototype for the base:
 
 #### The autonomous vehicle uses the standard LaTrax Desert Prerunner four-wheel drive system. It has a rugged build and is mostly made of metal, unmodified from the stock version except for upgraded metal gears and the previously mentioned more powerful motor. In the center of the car runs a thick, metal axle that is rotated via the motor which is positioned on the right side's back corner. The axle leads to two differentials on either end of the car, inside which are positioned four gears each. From the inside of the differential run two axles, one for each side, directly connecting to the wheels, here is a picture to visualize:<img width="1331" height="945" alt="999 9 screenshot" src="https://github.com/user-attachments/assets/e341d3ed-625f-4d2a-a939-19acb13f1c61" />
 
-# 2: The electromics
+# 2: The electronics
 
 2.1: The motor and the ESC
 
