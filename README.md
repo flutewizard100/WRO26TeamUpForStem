@@ -70,4 +70,4 @@ here is the new prototype for the base:
 
 2.1: The motor and the ESC
 
-The autonomous vehicle uses 
+The autonomous vehicle uses (motor name) for propulsion. The reason we chose this motor over the stock motor is that this current motor is more powerful, and thus the autonomous vehicle will be able to move with ease. The electric speed control (ESC) that this autonomous vehicle is using is a (electric speed control name here) and was chosen because (reasons here).
