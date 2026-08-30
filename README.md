@@ -72,6 +72,10 @@ here is the new prototype for the base:
 
 The autonomous vehicle uses an ARRMA MEGA 380 BRUSHED MOTOR for propulsion.<img width="686" height="596" alt="Screenshot 2026-08-29 at 5 08 03 PM" src="https://github.com/user-attachments/assets/caa3ba29-00ad-4973-8e07-37d3375f4515" />
 
-The reason we chose this motor over the stock motor is that this current motor is more powerful, and thus the autonomous vehicle will be able to move with ease. The electric speed control (ESC) that this autonomous vehicle is using is a HOBBYWING QUICKRUN WP 1080 G2 BRUSHED 2-3s
+The reason we chose this motor over the stock motor is that this current motor is more powerful, and thus the autonomous vehicle will be able to move with ease. The electric speed control (ESC) that this autonomous vehicle is using is a HOBBYWING QUICKRUN WP 1080 G2 BRUSHED 2-3s 
+# PLEASE, PUT REASONS HERE
 
 <img width="769" height="440" alt="Screenshot 2026-08-29 at 5 12 58 PM" src="https://github.com/user-attachments/assets/b91f328f-c9b7-4fe7-9181-da96ef8d4ce2" /> 
+
+2.2: The servo and servo controller
+#### The servo motor the autonomous vehicle is using is the 
