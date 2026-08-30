@@ -8,7 +8,7 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 def generate_launch_description():
     pkg_share = get_package_share_directory('WRORobot')
     ekf_config_path = os.path.join(pkg_share, 'config', 'ekf.yaml')
-    
+    slam_config_path = os.path.join(pkg_share, 'config', 'slam_params.yaml')
     imu_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(
@@ -32,11 +32,13 @@ def generate_launch_description():
     slam_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(
-                get_package_share_directory('slam_toolbox'),
-                'launch',
-                'online_sync_launch.py'
+                get_package_share_directory('slam_toolbox'), 'launch', 'online_sync_launch.py'
             )
-        )
+        ),
+        launch_arguments={
+            'use_sim_time': 'false',
+            'slam_params_file': slam_config_path
+        }.items()
     )
     return LaunchDescription([
         slam_launch,

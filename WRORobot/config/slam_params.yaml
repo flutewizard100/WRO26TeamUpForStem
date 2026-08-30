@@ -1,0 +1,20 @@
+/slam_toolbox:
+  ros__parameters:
+    # ROS Parameters
+    odom_frame: odom
+    map_frame: map
+    base_frame: base_link
+    scan_topic: /scan
+
+    # Scan Matcher Parameters
+    distance_variance_penalty: 0.5
+    angle_variance_penalty: 1.0
+    fine_search_angle_offset: 0.00349
+    coarse_search_angle_offset: 0.349
+    coarse_linear_search_factor: 0.5
+
+    # QoS Override
+    qos_overrides:
+      /scan:
+        subscription:
+          reliability: reliable
