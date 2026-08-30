@@ -1,0 +1,29 @@
+laser_scan_matcher:
+  ros__parameters:
+    publish_odom: /odometry/laser
+    publish_tf: false
+
+    base_frame: base_link
+    odom_frame: odom
+    map_frame: map
+
+    # Must match your /scan header.frame_id
+    laser_frame: base_laser
+
+    kf_dist_linear: 0.10
+    kf_dist_angular: 0.174533
+
+    max_angular_correction_deg: 45.0
+    max_linear_correction: 0.5
+    max_iterations: 10
+    epsilon_xy: 0.000001
+    epsilon_theta: 0.000001
+    max_correspondence_dist: 0.3
+    sigma: 0.01
+    use_corr_tricks: 1
+    restart: 0
+    clustering_threshold: 0.25
+    orientation_neighbourhood: 20
+    use_point_to_line_distance: 1
+    do_alpha_test: 0
+    outliers_maxPerc: 0.90
