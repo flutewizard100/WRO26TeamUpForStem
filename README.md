@@ -1,5 +1,3 @@
-
-
 # Contents:
 ### 1: Base and drivetrain
 ### 1.1: base structure
@@ -78,4 +76,4 @@ The reason we chose this motor over the stock motor is that this current motor i
 <img width="769" height="440" alt="Screenshot 2026-08-29 at 5 12 58 PM" src="https://github.com/user-attachments/assets/b91f328f-c9b7-4fe7-9181-da96ef8d4ce2" /> 
 
 2.2: The servo and servo controller
-#### The servo motor the autonomous vehicle is using is the 
+#### The servo motor the autonomous vehicle is using is the (somethingsomething) to steer the front wheels. The current model of the servo replaced a weaker, less powerful servo that initially came with the stock version of the LaTrax Desert Prerunner. This servo uses metal gears and is also more durable and reliable. Here is a picture that shows the servo that we are using.
