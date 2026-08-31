@@ -1,0 +1,357 @@
+<?xml version="1.0"?>
+<!--
+  WRO Ackermann robot model for Gazebo Harmonic.
+
+  All dimensions here are placeholders. Every one of them is marked
+  TODO(measure): with a pointer to where the real value lives (physical
+  robot, or the WRO Chassis CAD in the repo root).
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="wro_bot">
+
+  <!-- ============================================================
+       Geometry parameters. Replace these with measured values.
+       ============================================================ -->
+  <!-- TODO(measure): axle-to-axle distance from the real chassis / CAD -->
+  <xacro:property name="wheelbase" value="0.18"/>
+  <!-- TODO(measure): left-to-right wheel centerline distance -->
+  <xacro:property name="track_width" value="0.136"/>
+  <!-- TODO(measure): wheel rolling radius (including tire) -->
+  <xacro:property name="wheel_radius" value="0.033"/>
+  <!-- TODO(measure): tire width -->
+  <xacro:property name="wheel_thickness" value="0.025"/>
+  <!-- TODO(measure): mechanical max steer of the front wheels (30 deg) -->
+  <xacro:property name="max_steer_angle" value="0.5236"/>
+
+  <!-- TODO(measure): chassis outer box from CAD -->
+  <xacro:property name="chassis_length" value="0.28"/>
+  <xacro:property name="chassis_width" value="0.16"/>
+  <xacro:property name="chassis_height" value="0.14"/>
+
+  <!-- Sensor mount offsets (all in base_link frame). -->
+  <!-- TODO(measure): lidar mount position on real bot -->
+  <xacro:property name="lidar_xyz" value="0.0 0.05 0.07"/>
+  <!-- TODO(measure): IMU mount position on real bot -->
+  <xacro:property name="imu_xyz" value="0.0 0.09 0.10"/>
+  <!-- TODO(measure): camera mount position on real bot (front-facing).
+       Component numbers to keep this trivially editable — camera lives at
+       (chassis_length/2 - 0.01, 0.0, 0.06). -->
+  <xacro:property name="camera_x" value="0.14"/>
+  <xacro:property name="camera_y" value="0.0"/>
+  <xacro:property name="camera_z" value="0.06"/>
+
+  <!-- Derived. -->
+  <xacro:property name="half_l" value="${wheelbase/2}"/>
+  <xacro:property name="half_t" value="${track_width/2}"/>
+  <xacro:property name="chassis_z" value="${wheel_radius + chassis_height/2}"/>
+
+  <!-- ============================================================
+       Materials (visual only).
+       ============================================================ -->
+  <material name="wro_body_grey">
+    <color rgba="0.35 0.35 0.4 1.0"/>
+  </material>
+  <material name="wro_wheel_black">
+    <color rgba="0.05 0.05 0.05 1.0"/>
+  </material>
+  <material name="wro_sensor_blue">
+    <color rgba="0.2 0.4 0.8 1.0"/>
+  </material>
+
+  <!-- ============================================================
+       Reusable macros.
+       ============================================================ -->
+  <xacro:macro name="inertial_box" params="mass x y z">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="${mass}"/>
+      <inertia
+        ixx="${(1.0/12.0)*mass*(y*y + z*z)}" ixy="0" ixz="0"
+        iyy="${(1.0/12.0)*mass*(x*x + z*z)}" iyz="0"
+        izz="${(1.0/12.0)*mass*(x*x + y*y)}"/>
+    </inertial>
+  </xacro:macro>
+
+  <xacro:macro name="inertial_cyl" params="mass r l">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="${mass}"/>
+      <inertia
+        ixx="${(1.0/12.0)*mass*(3*r*r + l*l)}" ixy="0" ixz="0"
+        iyy="${(1.0/12.0)*mass*(3*r*r + l*l)}" iyz="0"
+        izz="${0.5*mass*r*r}"/>
+    </inertial>
+  </xacro:macro>
+
+  <xacro:macro name="wheel_link" params="name">
+    <link name="${name}">
+      <visual>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_thickness}"/>
+        </geometry>
+        <material name="wro_wheel_black"/>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_thickness}"/>
+        </geometry>
+      </collision>
+      <xacro:inertial_cyl mass="0.05" r="${wheel_radius}" l="${wheel_thickness}"/>
+    </link>
+  </xacro:macro>
+
+  <!-- ============================================================
+       Frames.
+
+       base_link is the tree root. The AckermannSteering plugin publishes
+       odom -> base_link on /model/wro_bot/tf; robot_state_publisher owns
+       every other transform. We do NOT define base_footprint (it would
+       give base_link two parents once the plugin's tf is bridged).
+
+       Spawn the model with z = wheel_radius + chassis_height/2 so wheels
+       touch the ground (see wro_sim/launch/gz_sim.launch.py 'z' default).
+       ============================================================ -->
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${chassis_length} ${chassis_width} ${chassis_height}"/>
+      </geometry>
+      <material name="wro_body_grey"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${chassis_length} ${chassis_width} ${chassis_height}"/>
+      </geometry>
+    </collision>
+    <xacro:inertial_box mass="1.5" x="${chassis_length}" y="${chassis_width}" z="${chassis_height}"/>
+  </link>
+
+  <!-- Steering knuckles (front left, front right). -->
+  <link name="front_left_wheel_steer">
+    <xacro:inertial_box mass="0.02" x="0.02" y="0.02" z="0.02"/>
+  </link>
+  <link name="front_right_wheel_steer">
+    <xacro:inertial_box mass="0.02" x="0.02" y="0.02" z="0.02"/>
+  </link>
+
+  <joint name="front_left_wheel_steer_joint" type="revolute">
+    <parent link="base_link"/>
+    <child link="front_left_wheel_steer"/>
+    <origin xyz="${half_l} ${half_t} ${-chassis_height/2}" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="${-max_steer_angle}" upper="${max_steer_angle}"
+           effort="10.0" velocity="5.0"/>
+  </joint>
+
+  <joint name="front_right_wheel_steer_joint" type="revolute">
+    <parent link="base_link"/>
+    <child link="front_right_wheel_steer"/>
+    <origin xyz="${half_l} ${-half_t} ${-chassis_height/2}" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="${-max_steer_angle}" upper="${max_steer_angle}"
+           effort="10.0" velocity="5.0"/>
+  </joint>
+
+  <!-- Wheels. -->
+  <xacro:wheel_link name="front_left_wheel"/>
+  <xacro:wheel_link name="front_right_wheel"/>
+  <xacro:wheel_link name="rear_left_wheel"/>
+  <xacro:wheel_link name="rear_right_wheel"/>
+
+  <joint name="front_left_wheel_joint" type="continuous">
+    <parent link="front_left_wheel_steer"/>
+    <child link="front_left_wheel"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+
+  <joint name="front_right_wheel_joint" type="continuous">
+    <parent link="front_right_wheel_steer"/>
+    <child link="front_right_wheel"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+
+  <joint name="rear_left_wheel_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="rear_left_wheel"/>
+    <origin xyz="${-half_l} ${half_t} ${-chassis_height/2}" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+
+  <joint name="rear_right_wheel_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="rear_right_wheel"/>
+    <origin xyz="${-half_l} ${-half_t} ${-chassis_height/2}" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+
+  <!-- Sensor frames. -->
+  <link name="base_laser">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.025" length="0.03"/>
+      </geometry>
+      <material name="wro_sensor_blue"/>
+    </visual>
+    <xacro:inertial_cyl mass="0.05" r="0.025" l="0.03"/>
+  </link>
+
+  <joint name="base_link_to_base_laser" type="fixed">
+    <parent link="base_link"/>
+    <child link="base_laser"/>
+    <origin xyz="${lidar_xyz}" rpy="0 0 0"/>
+  </joint>
+
+  <link name="imu_link">
+    <xacro:inertial_box mass="0.01" x="0.02" y="0.02" z="0.005"/>
+  </link>
+
+  <joint name="base_link_to_imu_link" type="fixed">
+    <parent link="base_link"/>
+    <child link="imu_link"/>
+    <origin xyz="${imu_xyz}" rpy="0 0 0"/>
+  </joint>
+
+  <link name="camera_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.02 0.04 0.02"/>
+      </geometry>
+      <material name="wro_sensor_blue"/>
+    </visual>
+    <xacro:inertial_box mass="0.02" x="0.02" y="0.04" z="0.02"/>
+  </link>
+
+  <joint name="base_link_to_camera_link" type="fixed">
+    <parent link="base_link"/>
+    <child link="camera_link"/>
+    <origin xyz="${camera_x} ${camera_y} ${camera_z}" rpy="0 0 0"/>
+  </joint>
+
+  <!-- ROS image convention frame (Z forward, X right, Y down). Attach the
+       Gazebo camera sensor here so the ROS bridge image already lives in the
+       optical frame. -->
+  <link name="camera_optical_frame"/>
+  <joint name="camera_link_to_optical" type="fixed">
+    <parent link="camera_link"/>
+    <child link="camera_optical_frame"/>
+    <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
+  </joint>
+
+  <!-- ============================================================
+       Gazebo Harmonic plugin fragments.
+       ============================================================ -->
+
+  <!-- Ackermann drive. Publishes odom on /model/wro_bot/odometry and tf on
+       /model/wro_bot/tf (bridged to /tf on the ROS side). Consumes Twist on
+       /model/wro_bot/cmd_vel (bridged from /cmd_vel). -->
+  <gazebo>
+    <plugin filename="gz-sim-ackermann-steering-system"
+            name="gz::sim::systems::AckermannSteering">
+      <left_joint>front_left_wheel_joint</left_joint>
+      <right_joint>front_right_wheel_joint</right_joint>
+      <left_steering_joint>front_left_wheel_steer_joint</left_steering_joint>
+      <right_steering_joint>front_right_wheel_steer_joint</right_steering_joint>
+      <kingpin_width>${track_width}</kingpin_width>
+      <steering_limit>${max_steer_angle}</steering_limit>
+      <wheel_base>${wheelbase}</wheel_base>
+      <wheel_separation>${track_width}</wheel_separation>
+      <wheel_radius>${wheel_radius}</wheel_radius>
+      <min_velocity>-1.0</min_velocity>
+      <max_velocity>1.0</max_velocity>
+      <min_acceleration>-2.0</min_acceleration>
+      <max_acceleration>2.0</max_acceleration>
+      <topic>/model/wro_bot/cmd_vel</topic>
+      <odom_topic>/model/wro_bot/odometry</odom_topic>
+      <tf_topic>/model/wro_bot/tf</tf_topic>
+      <frame_id>odom</frame_id>
+      <child_frame_id>base_link</child_frame_id>
+      <odom_publish_frequency>30</odom_publish_frequency>
+    </plugin>
+  </gazebo>
+
+  <!-- Joint states -->
+  <gazebo>
+    <plugin filename="gz-sim-joint-state-publisher-system"
+            name="gz::sim::systems::JointStatePublisher">
+      <topic>/model/wro_bot/joint_state</topic>
+    </plugin>
+  </gazebo>
+
+  <!-- GPU Lidar on base_laser. -->
+  <gazebo reference="base_laser">
+    <sensor name="wro_lidar" type="gpu_lidar">
+      <topic>/lidar</topic>
+      <update_rate>10</update_rate>
+      <always_on>1</always_on>
+      <visualize>false</visualize>
+      <gz_frame_id>base_laser</gz_frame_id>
+      <lidar>
+        <scan>
+          <horizontal>
+            <samples>360</samples>
+            <resolution>1</resolution>
+            <min_angle>-3.141592653589793</min_angle>
+            <max_angle>3.141592653589793</max_angle>
+          </horizontal>
+          <vertical>
+            <samples>1</samples>
+            <resolution>1</resolution>
+            <min_angle>0.0</min_angle>
+            <max_angle>0.0</max_angle>
+          </vertical>
+        </scan>
+        <range>
+          <min>0.02</min>
+          <max>8.0</max>
+          <resolution>0.01</resolution>
+        </range>
+        <noise>
+          <type>gaussian</type>
+          <mean>0.0</mean>
+          <stddev>0.01</stddev>
+        </noise>
+      </lidar>
+    </sensor>
+  </gazebo>
+
+  <!-- IMU on imu_link. -->
+  <gazebo reference="imu_link">
+    <sensor name="wro_imu" type="imu">
+      <topic>/imu</topic>
+      <update_rate>100</update_rate>
+      <always_on>1</always_on>
+      <gz_frame_id>imu_link</gz_frame_id>
+    </sensor>
+  </gazebo>
+
+  <!-- RGB camera on camera_link (attached to the optical frame so the ROS
+       image already lives in optical convention). -->
+  <gazebo reference="camera_link">
+    <sensor name="wro_camera" type="camera">
+      <topic>/camera</topic>
+      <update_rate>30</update_rate>
+      <always_on>1</always_on>
+      <gz_frame_id>camera_optical_frame</gz_frame_id>
+      <camera>
+        <horizontal_fov>1.0472</horizontal_fov>
+        <image>
+          <width>640</width>
+          <height>480</height>
+          <format>R8G8B8</format>
+        </image>
+        <clip>
+          <near>0.05</near>
+          <far>50.0</far>
+        </clip>
+      </camera>
+    </sensor>
+  </gazebo>
+
+</robot>

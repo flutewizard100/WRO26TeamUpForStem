@@ -1,0 +1,11 @@
+image: wro_field.pgm
+mode: trinary
+resolution: 0.02
+origin: [-2.0, -2.0, 0.0]
+negate: 0
+occupied_thresh: 0.65
+free_thresh: 0.25
+# Placeholder map: 200x200 px at 0.02 m/px = 4x4 m of free space, all white.
+# TODO(measure): replace with a real map either by loading a real WRO field
+# occupancy grid, or by SLAMing the sim world and saving with:
+#   ros2 run nav2_map_server map_saver_cli -f wro_field
