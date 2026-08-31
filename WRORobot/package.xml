@@ -3,6 +3,9 @@
 <package format="3">
   <name>WRORobot</name>
   <version>0.0.0</version>
+  <description>Hardware bringup, URDF, and drivers for the WRO Ackermann robot.</description>
+  <maintainer email="sagnikbiswas712@gmail.com">wroteam</maintainer>
+  <license>Apache-2.0</license>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
@@ -16,10 +19,10 @@
   <exec_depend>robot_state_publisher</exec_depend>
   <exec_depend>xacro</exec_depend>
   <exec_depend>ldlidar_ros2</exec_depend>
-  <!-- robot_stack.launch.py composes wro_nav2 and wro_behavior; both are
-       workspace-local (pass rosdep --skip-keys "wro_nav2 wro_behavior"). -->
-  <exec_depend>wro_nav2</exec_depend>
-  <exec_depend>wro_behavior</exec_depend>
+  <!-- robot_stack.launch.py composes wro_nav2 and wro_behavior at runtime.
+       They are NOT declared as exec_depend to avoid a circular colcon
+       ordering (wro_nav2 already depends on WRORobot for URDF/params). -->
+
 
 
   <export>

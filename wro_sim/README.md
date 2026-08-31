@@ -64,10 +64,29 @@ Sim + SLAM (build a map online):
 
 ```bash
 ros2 launch wro_sim sim_stack.launch.py slam:=true rviz:=true
-# When happy:
-ros2 run nav2_map_server map_saver_cli -f wro_field
+
+# slam_toolbox is a LIFECYCLE node and slam.launch.py does NOT wire in a
+# lifecycle_manager yet. Activate it by hand from another terminal:
+ros2 lifecycle set /slam_toolbox configure
+ros2 lifecycle set /slam_toolbox activate
+
+# Drive with teleop until the RViz Map display looks acceptable.
+ros2 run teleop_twist_keyboard teleop_twist_keyboard
+
+# Save. The transient_local param is REQUIRED — slam_toolbox publishes
+# /map with TRANSIENT_LOCAL durability and map_saver_cli defaults to
+# VOLATILE, which silently misses every message and prints
+# "Failed to spin map subscription" after 2 s.
+ros2 run nav2_map_server map_saver_cli -f wro_field \
+    --ros-args -p map_subscribe_transient_local:=true
 mv wro_field.pgm wro_field.yaml $(ros2 pkg prefix wro_nav2)/share/wro_nav2/maps/
 ```
+
+The saved map's origin is anchored at the robot's pose when slam_toolbox
+was activated, NOT Gazebo's world origin. When you later reload the map
+with Nav2 (`slam:=false`), use RViz's 2D Pose Estimate to set the
+initial pose to `(0, 0)` yaw `0` in the map frame — that places the
+robot at Gazebo world `(0, -1.3)` yaw `1.5708`.
 
 ## Topic bridge
 
@@ -106,7 +125,15 @@ When you update any of these, also update `wro_nav2/params/nav2_params*.yaml`:
 - Footprint polygon in both costmaps
 
 Sim spawn pose defaults live in `launch/sim.launch.py` (`x=0`, `y=-1.3`,
-`yaw=1.5708`). Adjust to your WRO field start box.
+`z=0.103`, `yaw=1.5708`). Adjust to your WRO field start box.
+
+**Do not lower the default `z`.** `z = wheel_radius + chassis_height/2`
+(0.033 + 0.070 = 0.103) is the resting height with wheels on the ground.
+Spawning below that (e.g. the old `z=0.073`) buries the wheels ~3 cm
+underground; physics still runs and joint commands still spin the wheels,
+but the chassis stays jammed and never translates. Symptom: `/odom`
+integrates a fake forward velocity while `gz model -m wro_bot -p` shows
+the pose unchanged.
 
 ## Real-hardware decisions already made
 
@@ -116,3 +143,28 @@ Sim spawn pose defaults live in `launch/sim.launch.py` (`x=0`, `y=-1.3`,
 - **Sim `/camera`** is a plain 640x480 image, NOT a Limelight replacement.
   Real hardware uses a Limelight over NetworkTables; sim camera is for
   future ROS-side vision development.
+
+## Gotchas encountered during first bring-up
+
+Kept here so the next engineer doesn't re-diagnose the same problems:
+
+- **Launch it from a plain terminal, not the VSCode Snap terminal.**
+  VSCode-as-Snap leaks Snap env into subprocesses, and `gz sim` picks up
+  `/snap/core20/current/lib/x86_64-linux-gnu/libpthread.so.0` — an
+  ABI-incompatible libpthread — and dies with
+  `undefined symbol: __libc_pthread_init, version GLIBC_PRIVATE`. The
+  GUI crashes first, then the server gets SIGKILL'd. Use GNOME Terminal
+  / kitty / anything non-Snap.
+- **Ackermann plugin driven joints must be the rear wheels.**
+  `<left_joint>` / `<right_joint>` in
+  `gz-sim-ackermann-steering-system` are the joints velocity is
+  applied to. Setting them to the front wheels (which are also the
+  steering knuckles) results in front wheels spinning kinematically
+  with no traction and the car sits still. Fixed in
+  `WRORobot/urdf/wro_bot.urdf.xacro`.
+- **slam_toolbox does not auto-activate.** See the SLAM run block
+  above. Long-term fix: add a `nav2_lifecycle_manager` in
+  `wro_nav2/launch/slam.launch.py` with `autostart: true` and
+  `node_names: ['slam_toolbox']`.
+- **`map_saver_cli` needs `-p map_subscribe_transient_local:=true`.**
+  Without it, saves fail with "Failed to spin map subscription".

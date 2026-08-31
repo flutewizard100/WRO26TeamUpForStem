@@ -44,6 +44,23 @@ With SLAM instead of AMCL (building a map online):
 
 ```bash
 ros2 launch wro_nav2 slam.launch.py
+# slam_toolbox does not auto-activate — transition it by hand:
+ros2 lifecycle set /slam_toolbox configure
+ros2 lifecycle set /slam_toolbox activate
+```
+
+`slam.launch.py` does not yet include a `nav2_lifecycle_manager` for
+slam_toolbox. TODO: add one with `autostart: true` and
+`node_names: ['slam_toolbox']` so activation is automatic.
+
+Save the resulting map (transient_local flag is required — see
+`wro_sim/README.md` for the full explanation):
+
+```bash
+ros2 run nav2_map_server map_saver_cli -f wro_field \
+    --ros-args -p map_subscribe_transient_local:=true
+mv wro_field.pgm wro_field.yaml \
+   $(ros2 pkg prefix wro_nav2)/share/wro_nav2/maps/
 ```
 
 Localization-only (no planner/controller):

@@ -254,8 +254,11 @@
   <gazebo>
     <plugin filename="gz-sim-ackermann-steering-system"
             name="gz::sim::systems::AckermannSteering">
-      <left_joint>front_left_wheel_joint</left_joint>
-      <right_joint>front_right_wheel_joint</right_joint>
+      <!-- Driven wheels (RWD). left_joint / right_joint are the joints the
+           plugin applies velocity to. -->
+      <left_joint>rear_left_wheel_joint</left_joint>
+      <right_joint>rear_right_wheel_joint</right_joint>
+      <!-- Steered knuckles (front). -->
       <left_steering_joint>front_left_wheel_steer_joint</left_steering_joint>
       <right_steering_joint>front_right_wheel_steer_joint</right_steering_joint>
       <kingpin_width>${track_width}</kingpin_width>

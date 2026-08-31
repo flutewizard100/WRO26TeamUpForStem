@@ -56,6 +56,12 @@ def generate_launch_description():
             'params_file': params_file,
             'autostart': autostart,
             'use_composition': use_composition,
+            # nav2_bringup evaluates these inside PythonExpression, so they
+            # must be Python-literal-cased ('False'/'True'). Pin them here so
+            # a lowercase LaunchConfiguration from an outer include (e.g.
+            # sim_stack's 'slam:=false') can't leak in.
+            'slam': 'False',
+            'use_localization': 'True',
         }.items(),
     )
 

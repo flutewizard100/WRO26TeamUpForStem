@@ -76,7 +76,7 @@ def generate_launch_description():
     declare_rviz = DeclareLaunchArgument('rviz', default_value='false')
     declare_x = DeclareLaunchArgument('x', default_value='0.0')
     declare_y = DeclareLaunchArgument('y', default_value='-1.3')
-    declare_z = DeclareLaunchArgument('z', default_value='0.073')
+    declare_z = DeclareLaunchArgument('z', default_value='0.103')
     declare_yaw = DeclareLaunchArgument('yaw', default_value='1.5708')
 
     # Start gz sim with our world.
@@ -88,7 +88,7 @@ def generate_launch_description():
             ])
         ]),
         launch_arguments={
-            'gz_args': [world, ' -r -v 3'],
+            'gz_args': [world, ' -s -r -v 3'],
         }.items(),
     )
 

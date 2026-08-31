@@ -19,7 +19,7 @@
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
   <!-- slam.launch.py resolves slam_params.yaml from WRORobot's share dir.
-       This is a workspace-local package; pass rosdep --skip-keys WRORobot
+       This is a workspace-local package; pass rosdep skip-keys WRORobot
        (see wro_sim/README.md Build section). -->
   <exec_depend>WRORobot</exec_depend>
 
