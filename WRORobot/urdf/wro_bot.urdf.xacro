@@ -28,14 +28,23 @@
   <xacro:property name="chassis_height" value="0.14"/>
 
   <!-- Sensor mount offsets (all in base_link frame). -->
-  <!-- TODO(measure): lidar mount position on real bot -->
-  <xacro:property name="lidar_xyz" value="0.0 0.05 0.07"/>
+  <!-- TODO(measure): lidar mount position on real bot.
+       Target: 8.5 cm above ground. base_link sits at world z = 0.103
+       (= wheel_radius + chassis_height/2), so world 0.085 = base_link
+       offset -0.018.
+       WARNING: with the current placeholder chassis_height (0.14 m), this
+       Z sits inside the chassis collision box and will produce self-hits
+       (0.13-0.16 m returns on every ray). Shrink chassis_height to a
+       realistic WRO value (~0.05 m) before trusting scans. -->
+  <xacro:property name="lidar_xyz" value="0.0 0.05 -0.018"/>
   <!-- TODO(measure): IMU mount position on real bot -->
   <xacro:property name="imu_xyz" value="0.0 0.09 0.10"/>
   <!-- TODO(measure): camera mount position on real bot (front-facing).
-       Component numbers to keep this trivially editable — camera lives at
-       (chassis_length/2 - 0.01, 0.0, 0.06). -->
-  <xacro:property name="camera_x" value="0.14"/>
+       camera_x must clear the chassis front face (chassis_length/2 = 0.14)
+       plus the camera body half-depth (~0.01). Sitting camera at exactly
+       chassis_length/2 puts the sensor inside the chassis geometry and
+       renders a blank/single-color image. -->
+  <xacro:property name="camera_x" value="0.16"/>
   <xacro:property name="camera_y" value="0.0"/>
   <xacro:property name="camera_z" value="0.06"/>
 

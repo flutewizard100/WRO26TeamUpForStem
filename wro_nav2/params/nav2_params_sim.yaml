@@ -46,6 +46,18 @@ amcl:
     z_rand: 0.5
     z_short: 0.05
     scan_topic: /scan
+    # Auto-seed AMCL at startup so the map->odom transform exists before
+    # Nav2's costmaps try to activate. Without this, global_costmap's
+    # activation times out waiting for the `map` frame and the whole
+    # navigation lifecycle group aborts.
+    # Values match the sim spawn pose (see wro_sim/launch/sim.launch.py:
+    #   x=0, y=-1.3, yaw=1.5708). Update both together if you move the spawn.
+    set_initial_pose: true
+    initial_pose:
+      x: 0.0
+      y: -1.3
+      z: 0.0
+      yaw: 1.5708
 
 bt_navigator:
   ros__parameters:
@@ -56,54 +68,19 @@ bt_navigator:
     bt_loop_duration: 10
     default_server_timeout: 20
     wait_for_service_timeout: 1000
-    default_nav_to_pose_bt_xml: $(find-pkg-share wro_nav2)/bt/wro_navigate_to_pose.xml
-    plugin_lib_names:
-      - nav2_compute_path_to_pose_action_bt_node
-      - nav2_compute_path_through_poses_action_bt_node
-      - nav2_smooth_path_action_bt_node
-      - nav2_follow_path_action_bt_node
-      - nav2_spin_action_bt_node
-      - nav2_wait_action_bt_node
-      - nav2_assisted_teleop_action_bt_node
-      - nav2_back_up_action_bt_node
-      - nav2_drive_on_heading_bt_node
-      - nav2_clear_costmap_service_bt_node
-      - nav2_is_stuck_condition_bt_node
-      - nav2_goal_reached_condition_bt_node
-      - nav2_goal_updated_condition_bt_node
-      - nav2_globally_updated_goal_condition_bt_node
-      - nav2_is_path_valid_condition_bt_node
-      - nav2_initial_pose_received_condition_bt_node
-      - nav2_reinitialize_global_localization_service_bt_node
-      - nav2_rate_controller_bt_node
-      - nav2_distance_controller_bt_node
-      - nav2_speed_controller_bt_node
-      - nav2_truncate_path_action_bt_node
-      - nav2_truncate_path_local_action_bt_node
-      - nav2_goal_updater_node_bt_node
-      - nav2_recovery_node_bt_node
-      - nav2_pipeline_sequence_bt_node
-      - nav2_round_robin_node_bt_node
-      - nav2_transform_available_condition_bt_node
-      - nav2_time_expired_condition_bt_node
-      - nav2_path_expiring_timer_condition_bt_node
-      - nav2_distance_traveled_condition_bt_node
-      - nav2_single_trigger_bt_node
-      - nav2_goal_updated_controller_bt_node
-      - nav2_is_battery_low_condition_bt_node
-      - nav2_navigate_through_poses_action_bt_node
-      - nav2_navigate_to_pose_action_bt_node
-      - nav2_remove_passed_goals_action_bt_node
-      - nav2_planner_selector_bt_node
-      - nav2_controller_selector_bt_node
-      - nav2_goal_checker_selector_bt_node
-      - nav2_controller_cancel_bt_node
-      - nav2_wait_cancel_bt_node
-      - nav2_spin_cancel_bt_node
-      - nav2_back_up_cancel_bt_node
-      - nav2_assisted_teleop_cancel_bt_node
-      - nav2_drive_on_heading_cancel_bt_node
-      - nav2_is_battery_charging_condition_bt_node
+    # Point at our Ackermann-safe BT (no Spin — the WRO robot can't rotate
+    # in place). Absolute path because $(find-pkg-share ...) substitution
+    # doesn't reliably resolve here in Jazzy. Without this, bt_navigator
+    # falls back to Nav2's default BT and errors on "Action server spin not
+    # available".
+    default_nav_to_pose_bt_xml: "/home/dorina/Code/WRO26TeamUpForStem/install/wro_nav2/share/wro_nav2/bt/wro_navigate_to_pose.xml"
+    default_nav_through_poses_bt_xml: "/home/dorina/Code/WRO26TeamUpForStem/install/wro_nav2/share/wro_nav2/bt/wro_navigate_through_poses.xml"
+    # plugin_lib_names removed: Nav2 Jazzy's bt_navigator auto-registers the
+    # standard BT nodes internally. Listing them here (as older Nav2 versions
+    # required) causes double registration and a fatal
+    #   "ID [ComputePathToPose] already registered"
+    # crash. If you need a *custom* BT plugin, add it here as a single-entry
+    # list — don't re-add the built-ins.
 
 controller_server:
   ros__parameters:
@@ -224,7 +201,7 @@ local_costmap:
       height: 3
       resolution: 0.02
       footprint: "[[0.14, 0.08], [0.14, -0.08], [-0.14, -0.08], [-0.14, 0.08]]"
-      plugins: ["obstacle_layer", "inflation_layer"]
+      plugins: ["obstacle_layer", "pillar_layer", "inflation_layer"]
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: true
@@ -239,6 +216,24 @@ local_costmap:
           raytrace_min_range: 0.0
           obstacle_max_range: 6.0
           obstacle_min_range: 0.0
+      # Same pillar source as global_costmap, but with much shorter
+      # persistence so stale detections clear while the robot is moving —
+      # the local costmap is a rolling window, not a memory.
+      pillar_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: true
+        observation_sources: pillars
+        pillars:
+          topic: /perception/pillar_points
+          data_type: "PointCloud2"
+          marking: true
+          clearing: false
+          obstacle_max_range: 2.0
+          obstacle_min_range: 0.0
+          raytrace_max_range: 2.0
+          raytrace_min_range: 0.0
+          max_obstacle_height: 0.5
+          observation_persistence: 2.0
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 3.0
@@ -256,10 +251,29 @@ global_costmap:
       resolution: 0.02
       footprint: "[[0.14, 0.08], [0.14, -0.08], [-0.14, -0.08], [-0.14, 0.08]]"
       track_unknown_space: true
-      plugins: ["static_layer", "inflation_layer"]
+      plugins: ["static_layer", "pillar_layer", "inflation_layer"]
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
         map_subscribe_transient_local: true
+      # Pillars detected by wro_behavior/pillar_detector. observation_persistence
+      # keeps a pillar in the costmap for 30 s even after the camera loses
+      # sight of it — WRO pillars don't move, so we shouldn't unmark them
+      # every time the robot turns away.
+      pillar_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: true
+        observation_sources: pillars
+        pillars:
+          topic: /perception/pillar_points
+          data_type: "PointCloud2"
+          marking: true
+          clearing: false
+          obstacle_max_range: 3.0
+          obstacle_min_range: 0.0
+          raytrace_max_range: 3.0
+          raytrace_min_range: 0.0
+          max_obstacle_height: 0.5
+          observation_persistence: 30.0
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 3.0
@@ -269,7 +283,10 @@ global_costmap:
 map_server:
   ros__parameters:
     use_sim_time: true
-    yaml_filename: "wro_field.yaml"
+    # Absolute path so map_server resolves independent of CWD. nav2_bringup's
+    # RewrittenYaml doesn't reliably substitute this in Jazzy when called via
+    # our nested launch; pinning the install-share path avoids the issue.
+    yaml_filename: "/home/dorina/Code/WRO26TeamUpForStem/install/wro_nav2/share/wro_nav2/maps/wro_field.yaml"
 
 map_saver:
   ros__parameters:
@@ -374,3 +391,58 @@ velocity_smoother:
     odom_duration: 0.1
     deadband_velocity: [0.0, 0.0, 0.0]
     velocity_timeout: 1.0
+
+# collision_monitor: nav2_bringup unconditionally launches this in Jazzy.
+# Empty observation_sources is treated as "unset" and aborts the whole
+# navigation lifecycle group, so we declare one scan source. Polygons is
+# still empty — the node runs but takes no action; add real polygons here
+# when tuning bumper/slowdown zones.
+collision_monitor:
+  ros__parameters:
+    use_sim_time: true
+    base_frame_id: "base_link"
+    odom_frame_id: "odom"
+    cmd_vel_in_topic: "cmd_vel_smoothed"
+    cmd_vel_out_topic: "cmd_vel"
+    state_topic: "collision_monitor_state"
+    transform_tolerance: 0.5
+    source_timeout: 5.0
+    base_shift_correction: true
+    stop_pub_timeout: 2.0
+    # Empty `polygons` is also rejected in Jazzy. Declare one no-op polygon
+    # (action_type: none) so the node configures cleanly. Replace with a real
+    # bumper/slowdown zone when tuning.
+    polygons: ["FootprintNoop"]
+    FootprintNoop:
+      type: "polygon"
+      points: "[[0.20, 0.10], [0.20, -0.10], [-0.20, -0.10], [-0.20, 0.10]]"
+      action_type: "none"
+      min_points: 4
+      visualize: false
+    observation_sources: ["scan"]
+    scan:
+      type: "scan"
+      topic: "/scan"
+      enabled: true
+
+# docking_server: nav2_bringup unconditionally launches this in Jazzy and
+# refuses to configure without at least one dock plugin declared. The WRO
+# robot doesn't dock, so this is a stub — provide one plugin so it configures
+# clean; we never actually call the docking action.
+docking_server:
+  ros__parameters:
+    use_sim_time: true
+    controller_frequency: 50.0
+    initial_perception_timeout: 5.0
+    wait_charge_timeout: 5.0
+    dock_approach_timeout: 30.0
+    undock_linear_tolerance: 0.05
+    undock_angular_tolerance: 0.1
+    max_retries: 3
+    base_frame: "base_link"
+    fixed_frame: "odom"
+    dock_backwards: false
+    dock_prestaging_tolerance: 0.5
+    dock_plugins: ["simple_charging_dock"]
+    simple_charging_dock:
+      plugin: "opennav_docking::SimpleChargingDock"

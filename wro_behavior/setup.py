@@ -24,6 +24,7 @@ setup(
     entry_points={
         'console_scripts': [
             'goto_pose = wro_behavior.goto_pose:main',
+            'pillar_detector = wro_behavior.pillar_detector:main',
         ],
     },
 )

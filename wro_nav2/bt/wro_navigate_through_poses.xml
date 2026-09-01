@@ -1,8 +1,8 @@
 <!--
-  WRO NavigateToPose BT.
-  Based on Nav2's default navigate_to_pose_w_replanning_and_recovery.xml,
+  WRO NavigateThroughPoses BT.
+  Based on Nav2's default navigate_through_poses_w_replanning_and_recovery.xml,
   but Spin recovery is REMOVED (Ackermann robot cannot spin in place).
-  Kept: Wait and BackUp (backup_dist 0.15) as recovery behaviors.
+  Kept: Wait and BackUp as recovery behaviors.
 -->
 <root BTCPP_format="4" main_tree_to_execute="MainTree">
   <BehaviorTree ID="MainTree">
@@ -11,13 +11,16 @@
         <ControllerSelector selected_controller="{selected_controller}" default_controller="FollowPath" topic_name="controller_selector"/>
         <PlannerSelector selected_planner="{selected_planner}" default_planner="GridBased" topic_name="planner_selector"/>
         <RateController hz="1.0">
-          <RecoveryNode number_of_retries="1" name="ComputePathToPose">
-            <ComputePathToPose goal="{goal}" path="{path}" planner_id="{selected_planner}" error_code_id="{compute_path_error_code}"/>
+          <RecoveryNode number_of_retries="1" name="ComputePathThroughPoses">
+            <ReactiveSequence>
+              <RemovePassedGoals input_goals="{goals}" output_goals="{goals}" radius="0.5"/>
+              <ComputePathThroughPoses goals="{goals}" path="{path}" planner_id="{selected_planner}"/>
+            </ReactiveSequence>
             <ClearEntireCostmap name="ClearGlobalCostmap-Context" service_name="global_costmap/clear_entirely_global_costmap"/>
           </RecoveryNode>
         </RateController>
         <RecoveryNode number_of_retries="1" name="FollowPath">
-          <FollowPath path="{path}" controller_id="{selected_controller}" error_code_id="{follow_path_error_code}"/>
+          <FollowPath path="{path}" controller_id="{selected_controller}"/>
           <ClearEntireCostmap name="ClearLocalCostmap-Context" service_name="local_costmap/clear_entirely_local_costmap"/>
         </RecoveryNode>
       </PipelineSequence>
