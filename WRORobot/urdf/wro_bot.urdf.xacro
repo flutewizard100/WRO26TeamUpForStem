@@ -40,6 +40,8 @@
   <!-- TODO(measure): IMU mount position on real bot -->
   <xacro:property name="imu_xyz" value="0.0 0.09 0.10"/>
   <!-- TODO(measure): camera mount position on real bot (front-facing).
+       On the real bot this is the Limelight 3's front mount; in sim it's
+       the Gazebo RGB camera. Same URDF frame, one physical intent.
        camera_x must clear the chassis front face (chassis_length/2 = 0.14)
        plus the camera body half-depth (~0.01). Sitting camera at exactly
        chassis_length/2 puts the sensor inside the chassis geometry and

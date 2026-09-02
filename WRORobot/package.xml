@@ -15,7 +15,11 @@
   <depend>rclpy</depend>
   <depend>nav_msgs</depend>
   <depend>geometry_msgs</depend>
+  <depend>vision_msgs</depend>
   <depend>tf2_ros</depend>
+  <exec_depend>robot_localization</exec_depend>
+  <exec_depend>imu_filter_madgwick</exec_depend>
+  <exec_depend>ros2_laser_scan_matcher</exec_depend>
   <exec_depend>robot_state_publisher</exec_depend>
   <exec_depend>xacro</exec_depend>
   <exec_depend>ldlidar_ros2</exec_depend>

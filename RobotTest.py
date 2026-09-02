@@ -1,5 +1,5 @@
-from Servo import Servo
-from Motor import Motor
+from WRORobot.Servo import Servo
+from WRORobot.Motor import Motor
 import time
 import rclpy
 import signal

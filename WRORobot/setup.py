@@ -36,7 +36,8 @@ setup(
             'HighController = WRORobot.RobotController:main',
             'Motor = WRORobot.Motor:main',
             'Servo = WRORobot.Servo:main',
-            'otos_node = wroRobot.otos_node:main',
+            'otos_node = WRORobot.otos_node:main',
+            'limelight_bridge = WRORobot.limelight_bridge:main',
         ],
     },
 

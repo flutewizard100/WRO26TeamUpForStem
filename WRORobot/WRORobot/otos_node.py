@@ -12,10 +12,18 @@ import qwiic_otos
 class OtosOdometryNode(Node):
     def __init__(self):
         super().__init__('otos_odometry_node')
-        
+
+        # publish_tf: broadcast odom -> base_link directly. Set False when
+        # ekf_filter_node is running (fusion pipeline) — the EKF becomes the
+        # sole publisher of that TF edge, using OTOS as one of several inputs.
+        # Set True when running OTOS standalone (no fusion). Default is False
+        # to match hardware.launch.py's fusion setup.
+        self.declare_parameter('publish_tf', False)
+        self._publish_tf = bool(self.get_parameter('publish_tf').value)
+
         # Initialize publishers and TF broadcasters
         self.odom_pub = self.create_publisher(Odometry, 'odom', 10)
-        self.tf_broadcaster = tf2_ros.TransformBroadcaster(self)
+        self.tf_broadcaster = tf2_ros.TransformBroadcaster(self) if self._publish_tf else None
         
         # Initialize the hardware sensor via I2C (Fixed Case Sensitivity)
         self.get_logger().info("Initializing SparkFun OTOS PAA5160E1...")
@@ -72,21 +80,23 @@ class OtosOdometryNode(Node):
         odom.twist.twist.angular.z = vel.h
         
         self.odom_pub.publish(odom)
-        
-        # 2. Broadcast /tf Transform (odom -> base_link)
-        t = TransformStamped()
-        t.header.stamp = current_time
-        t.header.frame_id = "odom"
-        t.child_frame_id = "base_link"
-        t.transform.translation.x = pos.x
-        t.transform.translation.y = pos.y
-        t.transform.translation.z = 0.0
-        t.transform.rotation.x = q[0]
-        t.transform.rotation.y = q[1]
-        t.transform.rotation.z = q[2]
-        t.transform.rotation.w = q[3]
-        
-        self.tf_broadcaster.sendTransform(t)
+
+        # 2. Broadcast /tf Transform (odom -> base_link) — only when acting
+        # as sole odom publisher. Under EKF fusion the filter owns this edge.
+        if self.tf_broadcaster is not None:
+            t = TransformStamped()
+            t.header.stamp = current_time
+            t.header.frame_id = "odom"
+            t.child_frame_id = "base_link"
+            t.transform.translation.x = pos.x
+            t.transform.translation.y = pos.y
+            t.transform.translation.z = 0.0
+            t.transform.rotation.x = q[0]
+            t.transform.rotation.y = q[1]
+            t.transform.rotation.z = q[2]
+            t.transform.rotation.w = q[3]
+
+            self.tf_broadcaster.sendTransform(t)
 
     def euler_to_quaternion(self, roll, pitch, yaw):
         cy = math.cos(yaw * 0.5)
