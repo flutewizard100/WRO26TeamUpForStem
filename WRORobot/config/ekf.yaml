@@ -34,23 +34,6 @@ ekf_filter_node:
     odom0_queue_size: 10
 
     # ------------------------------------------------------------------
-    # Source 1: LiDAR scan-to-scan matching (fallback pose).
-    # laser_scan_matcher publishes cumulative pose in odom frame from
-    # sequential scan alignment. Fuse as differential — it has no
-    # absolute reference; only its scan-to-scan deltas are meaningful.
-    # Provides x, y, yaw when the LiDAR sees walls with enough features.
-    # ------------------------------------------------------------------
-    odom1: /odometry/laser
-    odom1_config: [true,  true,  false,    # x, y, z
-                   false, false, true,     # roll, pitch, yaw
-                   false, false, false,    # vx, vy, vz
-                   false, false, false,    # vroll, vpitch, vyaw
-                   false, false, false]    # ax, ay, az
-    odom1_differential: true
-    odom1_relative: false
-    odom1_queue_size: 10
-
-    # ------------------------------------------------------------------
     # Source 2: Madgwick-filtered IMU (fallback heading + yaw rate).
     # imu_filter_madgwick fuses accel + gyro into an orientation quaternion
     # (no magnetometer — LSM9DS1 handler currently doesn't publish mag).

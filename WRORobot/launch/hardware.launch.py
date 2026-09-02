@@ -140,17 +140,6 @@ def generate_launch_description():
             }],
         ),
 
-        # laser_scan_matcher — /scan -> /odometry/laser via CSM scan-to-scan.
-        # Publishes odometry only; no TF (EKF owns it). Config lives at
-        # WRORobot/config/laser_scan_matcher.yaml.
-        Node(
-            package='ros2_laser_scan_matcher',
-            executable='laser_scan_matcher',
-            name='laser_scan_matcher',
-            output='screen',
-            parameters=[_config_path('laser_scan_matcher.yaml')],
-        ),
-
         # robot_localization EKF — fuses OTOS + IMU + scan matcher into a
         # single filtered odometry stream and publishes odom->base_link TF.
         # Sensor timeout is set in the yaml; if OTOS drops out for >0.3s,
