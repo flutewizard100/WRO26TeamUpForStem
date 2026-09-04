@@ -25,6 +25,9 @@ setup(
         'console_scripts': [
             'goto_pose = wro_behavior.goto_pose:main',
             'pillar_detector = wro_behavior.pillar_detector:main',
+            'open_challenge = wro_behavior.open_challenge:main',
+            'open_challenge_template = wro_behavior.open_challenge_template:main',
+            'hardware_test = wro_behavior.hardware_test:main',
         ],
     },
 )
