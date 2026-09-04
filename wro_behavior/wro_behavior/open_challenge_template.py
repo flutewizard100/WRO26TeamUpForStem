@@ -42,10 +42,10 @@ from geometry_msgs.msg import Twist
 CRUISE_SPEED = 0.25            # m/s
 KP = 4.0                       # gain on wall-follow error
 MAX_ANGULAR_Z = 1.5            # rad/s clamp
-TARGET_WALL_DIST = 0.25        # m; if you follow one wall
+TARGET_WALL_DIST = 0.45        # m; if you follow one wall
 CORNERS_PER_RACE = 12          # 4 corners × 3 laps
 CORNER_THRESHOLD = 0.6
-
+MAX_FRONT = 1.2
 # ============================================================================
 # Helpers
 # ============================================================================
@@ -88,6 +88,7 @@ class OpenChallenge(Node):
 
         self.last_left = None
         self.last_right = None
+        self.last_front = None
         # Sensor topics use "sensor QoS": BEST_EFFORT reliability, small depth.
         # /cmd_vel uses default (RELIABLE) — Twist is small and infrequent.
         sensor_qos = QoSProfile(depth=5, reliability=ReliabilityPolicy.BEST_EFFORT)
@@ -108,6 +109,7 @@ class OpenChallenge(Node):
         self.pose_y = 0.0          # most recent y in odom frame
         self.state = 'INIT'        # your state-machine label
         self.corners_done = 0
+        self.corner_ticks = 0                   # NEW: ticks spent in CORNER (reset on entry)
 
         # ---- Timer ----
         # step() runs every 0.05 s (20 Hz). This is your control loop.
@@ -154,7 +156,24 @@ class OpenChallenge(Node):
         # Twist default is zeros — safe if you forget to set something.
         cmd = Twist()
 
-        if (left > self.last_left + LEFT_DROP_VALUE):
+        if self.state == 'INIT':
+            self.state = 'LANE_FOLLOW'
+
+        elif self.state == 'LANE_FOLLOW':
+            cmd.angular.z = 0.0
+            cmd.linear.x = CRUISE_SPEED
+            if left > 1:
+                self.state = 'CORNER'
+                self.corner_ticks = 0           # NEW: reset the tick counter on corner entry
+
+
+        elif self.state == 'CORNER':
+            cmd.angular.z = 1.2
+            cmd.linear.x = 0.15
+            self.corner_ticks += 1              # NEW: count each tick we stay in CORNER
+            if abs(front-2) < 0.05:   # NEW: was `if left < 0.55 and front > 1.9:` — added min-duration guard
+                self.state = 'LANE_FOLLOW'
+                self.last_front = 0.0
 
 
         # ==================================================================
@@ -174,9 +193,7 @@ class OpenChallenge(Node):
 
         self.last_left = left
         self.last_right = right
-        # (skeleton: publish zeros so the robot doesn't drive.)
-        cmd.linear.x = 0.0
-        cmd.angular.z = 0.0
+        self.last_front = front
 
         self.cmd_pub.publish(cmd)
 
