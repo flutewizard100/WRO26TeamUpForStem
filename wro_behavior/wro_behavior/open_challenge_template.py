@@ -43,7 +43,7 @@ CRUISE_SPEED = 0.25            # m/s
 KP = 4.0                       # gain on wall-follow error
 MAX_ANGULAR_Z = 1.5            # rad/s clamp
 TARGET_WALL_DIST = 0.45        # m; if you follow one wall
-CORNERS_PER_RACE = 12          # 4 corners × 3 laps
+CORNERS_PER_RACE = 4          # 4 corners × 3 laps
 CORNER_THRESHOLD = 0.6
 MAX_FRONT = 1.2
 # ============================================================================
@@ -110,6 +110,7 @@ class OpenChallenge(Node):
         self.state = 'INIT'        # your state-machine label
         self.corners_done = 0
         self.corner_ticks = 0                   # NEW: ticks spent in CORNER (reset on entry)
+        self.exit_streak = 0                    # consecutive ticks the CORNER exit condition has held
 
         # ---- Timer ----
         # step() runs every 0.05 s (20 Hz). This is your control loop.
@@ -162,19 +163,45 @@ class OpenChallenge(Node):
         elif self.state == 'LANE_FOLLOW':
             cmd.angular.z = 0.0
             cmd.linear.x = CRUISE_SPEED
-            if left > 1:
+            if self.corners_done >= CORNERS_PER_RACE:
+                self.state = 'PARK'
+            if left > 1 or right > 1:
                 self.state = 'CORNER'
                 self.corner_ticks = 0           # NEW: reset the tick counter on corner entry
+                self.exit_streak = 0            # reset the exit debounce on entry
 
 
         elif self.state == 'CORNER':
             cmd.angular.z = 1.2
             cmd.linear.x = 0.15
             self.corner_ticks += 1              # NEW: count each tick we stay in CORNER
-            if abs(front-2) < 0.05:   # NEW: was `if left < 0.55 and front > 1.9:` — added min-duration guard
-                self.state = 'LANE_FOLLOW'
-                self.last_front = 0.0
 
+            # Debounced exit: condition must hold for 3 ticks in a row.
+            if abs(left + right - 1) < 0.3:
+                self.exit_streak += 1
+            else:
+                self.exit_streak = 0
+
+            if self.exit_streak >= 3:
+                self.state = 'LANE_FOLLOW'
+                self.corners_done += 1
+                self.exit_streak = 0
+
+        elif self.state == 'PARK' :
+            cmd.angular.z = 0.0
+            cmd.linear.x = CRUISE_SPEED
+            if front  > 1:
+                cmd.angular.z = 0.0
+                cmd.linear.x = CRUISE_SPEED
+                if front < 1.5:
+                    self.state = 'STOP'
+            else:
+                cmd.angular.z = 1.2
+                cmd.linear.x = 0.15
+        
+        elif self.state == 'STOP':
+            cmd.angular.z = 0.0
+            cmd.linear.x = 0.0
 
         # ==================================================================
         #  YOUR LOGIC GOES HERE.
