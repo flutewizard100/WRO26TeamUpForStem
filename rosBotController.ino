@@ -57,7 +57,6 @@ void servo_callback(const void *msvin)
 
   int command = msg->data;
   servo_angle = command;
-  myServo.write(servo_angle);
 
   snprintf(debug_buffer, sizeof(debug_buffer),
          "Speed: %d  Angle: %d",
@@ -101,8 +100,6 @@ void keyboard_callback(const void * msgin) {
          "Speed: %d  Angle: %d",
          target_speed,
          servo_angle);
-
-  myServo.write(servo_angle);
 
   rosidl_runtime_c__String__assign(&debug_msg.data, debug_buffer);
   RCSOFTCHECK(rcl_publish(&debug_publisher, &debug_msg, NULL));
@@ -189,5 +186,6 @@ void loop() {
 
   // DIRECT PASSTHROUGH TO THE ESC
   // Updates instantly based on your Python `try/finally` logic safely driving it
+  myServo.write(servo_angle);
   ESC.writeMicroseconds(target_speed);
 }
