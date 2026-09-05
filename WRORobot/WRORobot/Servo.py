@@ -38,6 +38,8 @@ class Servo(Node):
         return int(round(angle))
 
     def cmd_vel_callback(self, msg):
+        if msg.angular.z == 0.0 and msg.linear.x != 0.0:
+            return
         angle = self.scale_steering(msg.angular.z)
         self.write(angle)
 
