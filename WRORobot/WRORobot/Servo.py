@@ -31,7 +31,7 @@ class Servo(Node):
         steering_value = max(-1.0, min(1.0, steering_value))
 
         if steering_value >= 0.0:
-            angle = self.CENTER_ANGLE + STEERING_VALUE * (self.MIN_ANGLE - self.CENTER_ANGLE)
+            angle = self.CENTER_ANGLE + steering_value * (self.MIN_ANGLE - self.CENTER_ANGLE)
         else:
             angle = self.CENTER_ANGLE + steering_value * (self.CENTER_ANGLE - self.MAX_ANGLE)
 
