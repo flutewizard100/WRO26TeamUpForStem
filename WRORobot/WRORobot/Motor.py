@@ -20,10 +20,17 @@ class Motor(Node):
 
         direction = msg.linear.x
 
-        if direction >= 0.0:
-            motor_msg.data = int(1500 + direction * 180)
+        MAX_SPEED = 1.0
+
+        direction = cmd_vel.linear.x / MAX_SPEED
+        direction = max(-1.0, min(1.0, direction))
+
+        if direction > 0.0:
+            motor_msg.data = int(1585 + direction * 415)
+        elif direction < 0.0:
+            motor_msg.data = int(1450 + direction * 450)
         else:
-            motor_msg.data = int(1500 + direction * 280)
+            motor_msg.data = 1500
 
         # Clamp to valid ESC range
         motor_msg.data = max(1000, min(2000, motor_msg.data))
