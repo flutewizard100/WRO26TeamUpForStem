@@ -16,6 +16,9 @@ class Motor(Node):
 
     def sendCommand(self, msg):
 
+        if msg.linear.x == 0.0 and msg.linear.z != 0.0:
+            return
+        
         motor_msg = Int32()
 
         MAX_SPEED = 5.0
