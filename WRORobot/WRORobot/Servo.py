@@ -7,6 +7,7 @@ from geometry_msgs.msg import Twist
 
 class Servo(Node):
     MIN_ANGLE = 40
+    CENTER_ANGLE = 80
     MAX_ANGLE = 150
 
     def __init__(self):
@@ -29,17 +30,10 @@ class Servo(Node):
 
         steering_value = max(-1.0, min(1.0, steering_value))
 
-        input_min = -1.0
-        input_max = 1.0
-        output_min = self.MAX_ANGLE  # 150 degrees
-        output_max = self.MIN_ANGLE  # 40 degrees
-
-        angle = (
-            (steering_value - input_min)
-            * (output_max - output_min)
-            / (input_max - input_min)
-            + output_min
-        )
+        if steering_value >= 0.0:
+            angle = self.CENTER_ANGLE + STEERING_VALUE * (self.MIN_ANGLE - self.CENTER_ANGLE)
+        else:
+            angle = self.CENTER_ANGLE + steering_value * (self.CENTER_ANGLE - self.MAX_ANGLE)
 
         return int(round(angle))
 
