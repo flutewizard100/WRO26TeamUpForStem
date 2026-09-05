@@ -46,7 +46,6 @@ TARGET_WALL_DIST = 0.45        # m; if you follow one wall
 CORNERS_PER_RACE = 4          # 4 corners × 3 laps
 CORNER_THRESHOLD = 0.6
 MAX_FRONT = 1.2
-TURN_ADJUST = 40               # degrees short of a full 90°; residual rotation makes up the difference
 # ============================================================================
 # Helpers
 # ============================================================================
@@ -98,7 +97,7 @@ class OpenChallenge(Node):
         # Callback fires whenever a new message arrives on the topic.
         self.create_subscription(LaserScan, '/scan', self.on_scan, sensor_qos)
         self.create_subscription(Odometry, '/odom', self.on_odom, 10)
-        self.create_subscription(Imu, '/imu/data_raw', self.on_imu, sensor_qos)
+        # self.create_subscription(Imu, '/imu/data_raw', self.on_imu, sensor_qos)
 
         # ---- Publisher ----
         self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', 10)
@@ -112,8 +111,6 @@ class OpenChallenge(Node):
         self.corners_done = 0
         self.corner_ticks = 0                   # NEW: ticks spent in CORNER (reset on entry)
         self.exit_streak = 0                    # consecutive ticks the CORNER exit condition has held
-        self.yaw_rate = 0.0                     # rad/s, from IMU
-        self.corner_yaw = 0.0                   # radians accumulated inside CORNER state
 
         # ---- Timer ----
         # step() runs every 0.05 s (20 Hz). This is your control loop.
@@ -132,9 +129,6 @@ class OpenChallenge(Node):
         self.pose_x = msg.pose.pose.position.x
         self.pose_y = msg.pose.pose.position.y
         self.yaw = yaw_from_quaternion(msg.pose.pose.orientation)
-
-    def on_imu(self, msg: Imu) -> None:
-        self.yaw_rate = msg.angular_velocity.z
 
     # ------------------------------------------------------------------------
     # The control loop. Fires 20 times per second.
@@ -157,7 +151,6 @@ class OpenChallenge(Node):
         # ---- Debug print. Prints 20 lines/sec. Use flush=True. ----
         print(f"[{self.state}] left={left:.2f} right={right:.2f} "
               f"front={front:.2f} yaw={math.degrees(self.yaw):.1f} "
-              f"c_yaw={math.degrees(self.corner_yaw):+.1f} "
               f"corners={self.corners_done}", flush=True)
 
         # ---- Build the command you'll publish ----
@@ -174,24 +167,25 @@ class OpenChallenge(Node):
                 self.state = 'PARK'
             if left > 1 or right > 1:
                 self.state = 'CORNER'
-                self.corner_ticks = 0
-                self.corner_yaw = self.yaw
-                # reset the exit debounce on entry
+                self.corner_ticks = 0           # NEW: reset the tick counter on corner entry
+                self.exit_streak = 0            # reset the exit debounce on entry
 
 
         elif self.state == 'CORNER':
             cmd.angular.z = 1.2
             cmd.linear.x = 0.15
-            self.corner_ticks += 1
+            self.corner_ticks += 1              # NEW: count each tick we stay in CORNER
 
-            # Absolute target: after corner N the robot should face
-            # N*90° - TURN_ADJUST. Residual rotation carries it to the true N*90°.
-            target = (self.corners_done + 1) * math.pi / 2 - math.radians(TURN_ADJUST)
-            yaw_err = math.atan2(math.sin(target - self.yaw),
-                                 math.cos(target - self.yaw))
-            if yaw_err <= 0:
+            # Debounced exit: condition must hold for 3 ticks in a row.
+            if abs(left + right - 1) < 0.3:
+                self.exit_streak += 1
+            else:
+                self.exit_streak = 0
+
+            if self.exit_streak >= 3:
                 self.state = 'LANE_FOLLOW'
                 self.corners_done += 1
+                self.exit_streak = 0
 
         elif self.state == 'PARK' :
             cmd.angular.z = 0.0
