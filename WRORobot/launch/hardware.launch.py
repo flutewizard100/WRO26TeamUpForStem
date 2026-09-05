@@ -58,15 +58,6 @@ def _config_path(basename):
 
 
 def generate_launch_description():
-    imu_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(
-                get_package_share_directory('lsm9ds1_handler'),
-                'launch',
-                'lsm9ds1_handler.launch.py'
-            )
-        )
-    )
 
     lidar_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -91,7 +82,6 @@ def generate_launch_description():
 
     return LaunchDescription([
         lidar_launch,
-        imu_launch,
         rsp,
 
         Node(
@@ -121,23 +111,6 @@ def generate_launch_description():
             name='otos_odometry_node',
             output='screen',
             parameters=[{'publish_tf': False}],  # EKF owns odom->base_link now
-        ),
-
-        # imu_filter_madgwick — /imu/data_raw -> /imu/data (orientation
-        # quaternion). No magnetometer input; yaw is gyro-integrated and will
-        # drift. See task #22 to add /imu/mag if absolute yaw fallback is
-        # needed.
-        Node(
-            package='imu_filter_madgwick',
-            executable='imu_filter_madgwick_node',
-            name='imu_filter_madgwick',
-            output='screen',
-            parameters=[{
-                'use_mag': False,
-                'world_frame': 'enu',
-                'publish_tf': False,
-                'fixed_frame': 'odom',
-            }],
         ),
 
         # robot_localization EKF — fuses OTOS + IMU + scan matcher into a
