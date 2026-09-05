@@ -16,7 +16,7 @@ class Motor(Node):
 
     def sendCommand(self, msg):
 
-        if msg.linear.x == 0.0 and msg.linear.z != 0.0:
+        if msg.linear.x == 0.0 and msg.angular.z != 0.0:
             return
         
         motor_msg = Int32()
