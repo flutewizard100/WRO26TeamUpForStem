@@ -18,11 +18,9 @@ class Motor(Node):
 
         motor_msg = Int32()
 
-        direction = msg.linear.x
-
         MAX_SPEED = 1.0
 
-        direction = cmd_vel.linear.x / MAX_SPEED
+        direction = msg.linear.x / MAX_SPEED
         direction = max(-1.0, min(1.0, direction))
 
         if direction > 0.0:
