@@ -1,5 +1,7 @@
 #include <Servo.h>
 
+
+
 #include <PololuMaestro.h>
 
 #include <micro_ros_arduino.h>
@@ -40,20 +42,6 @@ rcl_node_t node;
 int target_speed = 1500;
 int servo_angle = 80;
 
-// Command-staleness failsafe: if no message from the host arrives within
-// this many milliseconds, force motor to neutral and steering to center.
-// Any inbound callback resets last_cmd_ms.
-#define MOTOR_TIMEOUT_MS 1000
-#define SERVO_CENTER 80
-#define SERVO_MIN 40
-#define SERVO_MAX 150
-#define ESC_MIN 1300
-#define ESC_MAX 1700
-// cmd_vel scaling. Flip TELEOP_TURN_SCALE sign if steering is mirrored.
-#define TELEOP_SPEED_SCALE 200
-#define TELEOP_TURN_SCALE 40
-unsigned long last_cmd_ms = 0;
-
 #define RCCHECK(fn) { rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){error_loop();}}
 #define RCSOFTCHECK(fn) { rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){}}
 
@@ -65,18 +53,10 @@ void error_loop(){
 
 void servo_callback(const void *msvin)
 {
-  // servo_angle is an ABSOLUTE steering angle in degrees. Values outside
-  // [SERVO_MIN, SERVO_MAX] are clamped. For teleop-style Twist input the
-  // firmware maps cmd_vel directly in keyboard_callback; this path is for
-  // programmatic Python callers (Servo.write, mission code).
   const std_msgs__msg__Int32 *msg = (const std_msgs__msg__Int32 *)msvin;
-  last_cmd_ms = millis();
 
-  int ang = msg->data;
-  if (ang < SERVO_MIN) ang = SERVO_MIN;
-  if (ang > SERVO_MAX) ang = SERVO_MAX;
-  servo_angle = ang;
-
+  int command = msg->data;
+  servo_angle = command;
   myServo.write(servo_angle);
 
   snprintf(debug_buffer, sizeof(debug_buffer),
@@ -92,7 +72,6 @@ void servo_callback(const void *msvin)
 void motor_callback(const void *msgin)
 {
   const std_msgs__msg__Int32 *msg = (const std_msgs__msg__Int32 *)msgin;
-  last_cmd_ms = millis();
 
   int command = msg->data;
 
@@ -110,19 +89,13 @@ void motor_callback(const void *msgin)
 void keyboard_callback(const void * msgin) {
 
   const geometry_msgs__msg__Twist *msg_in = (const geometry_msgs__msg__Twist *)msgin;
-  last_cmd_ms = millis();
   float direction = msg_in->linear.x;
   float turn = msg_in->angular.z;
+  if (direction == 0.0 && turn == 0.0) {
 
-  int spd = 1500 + (int)(direction * TELEOP_SPEED_SCALE);
-  if (spd < ESC_MIN) spd = ESC_MIN;
-  if (spd > ESC_MAX) spd = ESC_MAX;
-  target_speed = spd;
-
-  int ang = SERVO_CENTER - (int)(turn * TELEOP_TURN_SCALE);
-  if (ang < SERVO_MIN) ang = SERVO_MIN;
-  if (ang > SERVO_MAX) ang = SERVO_MAX;
-  servo_angle = ang;
+      target_speed = 1500;
+      servo_angle = 80;
+  }
 
   snprintf(debug_buffer, sizeof(debug_buffer),
          "Speed: %d  Angle: %d",
@@ -156,18 +129,16 @@ void setup() {
 
   pinMode(LED_BUILTIN, OUTPUT);
 
-  // Bring actuators to a known-safe state BEFORE blocking on the micro-ROS agent,
-  // so a cold boot without a host still leaves the servo held at center and the
-  // ESC seeing a neutral pulse (also serves as the ESC arm signal).
-  myServo.attach(SERVO_PIN);
-  myServo.write(SERVO_CENTER);
-
-  ESC.attach(MOTOR_PIN, 1000, 2000);
-  ESC.writeMicroseconds(1500);
-
   set_microros_transports();
 
   wait_for_agent();
+
+  myServo.attach(SERVO_PIN);
+  myServo.write(80); 
+  
+
+  ESC.attach(MOTOR_PIN, 1000, 2000);
+  ESC.writeMicroseconds(1500);
 
 
   allocator = rcl_get_default_allocator();
@@ -215,14 +186,6 @@ void setup() {
 void loop() {
   // Let the micro-ROS executor process incoming messages
   RCSOFTCHECK(rclc_executor_spin_some(&executor, RCL_MS_TO_NS(10)));
-
-  // Command-staleness failsafe: if the host has gone quiet, neutralize.
-  // Auto-resumes as soon as any callback updates last_cmd_ms.
-  if (millis() - last_cmd_ms > MOTOR_TIMEOUT_MS) {
-    target_speed = 1500;
-    servo_angle = SERVO_CENTER;
-    myServo.write(SERVO_CENTER);
-  }
 
   // DIRECT PASSTHROUGH TO THE ESC
   // Updates instantly based on your Python `try/finally` logic safely driving it
