@@ -18,7 +18,7 @@ class Motor(Node):
 
         motor_msg = Int32()
 
-        MAX_SPEED = 1.0
+        MAX_SPEED = 5.0
 
         direction = msg.linear.x / MAX_SPEED
         direction = max(-1.0, min(1.0, direction))
