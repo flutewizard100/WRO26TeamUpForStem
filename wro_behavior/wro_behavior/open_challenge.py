@@ -1,48 +1,66 @@
-"""WRO Open Challenge — 3 autonomous laps around the field.
+"""WRO Open Challenge — starter skeleton.
 
-Pure reactive wall-follower + corner detector + lap counter. No Nav2, no
-map, no AMCL. Subscribes to /scan, publishes /cmd_vel. Runs identically
-on sim (against wro_sim/sim.launch.py) and real hardware
-(WRORobot/launch/hardware.launch.py).
+Empty node. Subscribes to sensors, publishes /cmd_vel, does nothing useful.
+Fill in `step()` with your control logic.
 
-State machine:
-  INIT           — one scan to decide follow direction (CW vs CCW)
-  LANE_FOLLOW    — P controller on distance to chosen side wall
-  CORNERING      — fixed arc until front distance opens back up
-  STOP           — 12 corners done, cmd_vel = 0
+Run in sim:
+  ros2 launch wro_sim sim.launch.py rviz:=true
+  ros2 run wro_behavior open_challenge_template
 
-Tune these constants on the real robot before the run.
+Rebuild after every edit:
+  colcon build --packages-select wro_behavior
+  source install/setup.bash
 """
 import math
 
+# ============================================================================
+# ROS 2 imports
+# ============================================================================
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy
 
+# Sensor messages you'll receive:
+#   LaserScan  — lidar ring; ranges + angles
+#   Odometry   — pose and twist from the drive plugin (has yaw in quaternion)
+#   Imu        — angular velocity + linear acceleration (higher rate than odom)
+#   Image      — camera image (for future pillar detection)
 from sensor_msgs.msg import LaserScan
+from nav_msgs.msg import Odometry
+from sensor_msgs.msg import Imu
+
+# The message you'll SEND to drive the robot:
+#   Twist.linear.x  = forward speed in m/s   (positive = forward)
+#   Twist.angular.z = yaw rate in rad/s      (positive = turn LEFT / CCW)
+# Anything else in Twist is ignored — no strafing on Ackermann.
 from geometry_msgs.msg import Twist
 
 
-# ----- tuning knobs. Change one at a time; run three times per change. -----
-CRUISE_SPEED = 0.25          # m/s forward on straights
-CORNER_SPEED = 0.15          # m/s forward while cornering
-CORNER_THRESHOLD = 0.55      # m; front distance that triggers a corner
-CORNER_EXIT_FRONT = 0.8      # m; front distance that ends the corner
-CORNER_ANGULAR_Z = 1.2       # rad/s; magnitude of yaw command in corner
-TARGET_WALL_DIST = 0.25      # m; how far to hold off the followed wall
-KP = 2.0                     # gain on wall-distance error
-MAX_ANGULAR_Z = 1.5          # rad/s; clamp on commanded yaw rate
-CORNERS_PER_RACE = 12        # 4 corners × 3 laps
-CORNER_MIN_DURATION_S = 1.25 # s; ~86° at 1.2 rad/s — full 90° with a tiny safety margin
-# ----- end tuning knobs. --------------------------------------------------
-
-
+# ============================================================================
+# Tuning constants — edit these, don't hardcode numbers in the logic below.
+# ============================================================================
+CRUISE_SPEED = 0.25            # m/s
+KP = 4.0                       # gain on wall-follow error
+MAX_ANGULAR_Z = 1.5            # rad/s clamp
+TARGET_WALL_DIST = 0.45        # m; if you follow one wall
+CORNERS_PER_RACE = 4          # 4 corners × 3 laps
+CORNER_THRESHOLD = 0.6
+MAX_FRONT = 1.2
+TURN_ADJUST = 40               # degrees short of a full 90°; residual rotation makes up the difference
+# ============================================================================
+# Helpers
+# ============================================================================
 def median_in_arc(scan: LaserScan, center_rad: float,
                   half_width_rad: float = math.radians(8)) -> float:
-    """Median finite range within a small arc centered at center_rad.
+    """Median finite range within a small arc.
 
-    Uses median rather than min/mean to be robust to a stray inf or a
-    single spurious close reading.
+    center_rad is the angle in the lidar's frame:
+      0        = straight forward (+X in base_link)
+      +pi/2    = left side  (+Y)
+      -pi/2    = right side (-Y)
+      +pi      = straight back
+    half_width_rad picks how wide the arc is (default 8° each side = 16° total).
+    Returns scan.range_max if every beam in the arc is inf/nan.
     """
     idx_center = (center_rad - scan.angle_min) / scan.angle_increment
     idx_half = half_width_rad / scan.angle_increment
@@ -55,69 +73,160 @@ def median_in_arc(scan: LaserScan, center_rad: float,
     return sorted(vals)[len(vals) // 2]
 
 
+def yaw_from_quaternion(q) -> float:
+    """Extract yaw (rotation about Z) from a geometry_msgs/Quaternion."""
+    siny_cosp = 2.0 * (q.w * q.z + q.x * q.y)
+    cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z)
+    return math.atan2(siny_cosp, cosy_cosp)
+
+
+# ============================================================================
+# The node
+# ============================================================================
 class OpenChallenge(Node):
     def __init__(self):
-        super().__init__('open_challenge')
+        super().__init__('open_challenge_template')
 
+        self.last_left = None
+        self.last_right = None
+        self.last_front = None
+        # Sensor topics use "sensor QoS": BEST_EFFORT reliability, small depth.
+        # /cmd_vel uses default (RELIABLE) — Twist is small and infrequent.
         sensor_qos = QoSProfile(depth=5, reliability=ReliabilityPolicy.BEST_EFFORT)
-        self.scan_sub = self.create_subscription(
-            LaserScan, '/scan', self.on_scan, sensor_qos)
+
+        # ---- Subscribers ----
+        # Callback fires whenever a new message arrives on the topic.
+        self.create_subscription(LaserScan, '/scan', self.on_scan, sensor_qos)
+        self.create_subscription(Odometry, '/odom', self.on_odom, 10)
+        self.create_subscription(Imu, '/imu/data_raw', self.on_imu, sensor_qos)
+
+        # ---- Publisher ----
         self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', 10)
 
-        self.state = 'INIT'
-        self.direction = 1        # +1 = follow left wall (CCW); -1 = right (CW)
+        # ---- State you store between ticks ----
+        self.latest_scan = None    # most recent LaserScan
+        self.yaw = 0.0             # most recent yaw from /odom, radians
+        self.pose_x = 0.0          # most recent x in odom frame
+        self.pose_y = 0.0          # most recent y in odom frame
+        self.state = 'INIT'        # your state-machine label
         self.corners_done = 0
-        self.latest_scan = None
-        self.corner_start_time = None
-        self.log_counter = 0
+        self.corner_ticks = 0                   # NEW: ticks spent in CORNER (reset on entry)
+        self.exit_streak = 0                    # consecutive ticks the CORNER exit condition has held
+        self.yaw_rate = 0.0                     # rad/s, from IMU
+        self.corner_yaw = 0.0                   # radians accumulated inside CORNER state
 
-        self.create_timer(0.05, self.step)  # 20 Hz control loop
-        self.get_logger().info('open_challenge up — waiting for /scan')
+        # ---- Timer ----
+        # step() runs every 0.05 s (20 Hz). This is your control loop.
+        self.create_timer(0.05, self.step)
 
+        self.get_logger().info('node up — waiting for /scan')
+
+    # ------------------------------------------------------------------------
+    # Subscription callbacks. Keep these SHORT — just store data. Do the
+    # real work in step(), which runs on the fixed timer.
+    # ------------------------------------------------------------------------
     def on_scan(self, msg: LaserScan) -> None:
         self.latest_scan = msg
 
-    def step(self) -> None:
-        print(f"[tick] state={self.state} corners={self.corners_done}", flush=True)
+    def on_odom(self, msg: Odometry) -> None:
+        self.pose_x = msg.pose.pose.position.x
+        self.pose_y = msg.pose.pose.position.y
+        self.yaw = yaw_from_quaternion(msg.pose.pose.orientation)
 
+    def on_imu(self, msg: Imu) -> None:
+        self.yaw_rate = msg.angular_velocity.z
+
+    # ------------------------------------------------------------------------
+    # The control loop. Fires 20 times per second.
+    # ------------------------------------------------------------------------
+    def step(self) -> None:
+        # Bail out until we have data.
         if self.latest_scan is None:
-            print("  waiting for /scan", flush=True)
             return
         scan = self.latest_scan
 
+        # ---- Sensor readings you probably want ----
+        # front, left, right — median range in a small arc.
         front = median_in_arc(scan, 0.0)
-        left = median_in_arc(scan, math.pi / 2)
-        right = median_in_arc(scan, -math.pi / 2)
+        left = median_in_arc(scan, 8*math.pi/18)
+        right = median_in_arc(scan, 8*math.pi/18)
+        # Diagonals often help for smoother wall-following:
+        # front_left  = median_in_arc(scan, math.radians(45))
+        # front_right = median_in_arc(scan, math.radians(-45))
 
-        print(f"  [{self.state}] left={left:.2f} right={right:.2f} "
-              f"front={front:.2f}", flush=True)
+        # ---- Debug print. Prints 20 lines/sec. Use flush=True. ----
+        print(f"[{self.state}] left={left:.2f} right={right:.2f} "
+              f"front={front:.2f} yaw={math.degrees(self.yaw):.1f} "
+              f"c_yaw={math.degrees(self.corner_yaw):+.1f} "
+              f"corners={self.corners_done}", flush=True)
 
+        # ---- Build the command you'll publish ----
+        # Twist default is zeros — safe if you forget to set something.
         cmd = Twist()
 
         if self.state == 'INIT':
-            # Follow the wall we're already closer to. Robust to spawn side.
-            self.direction = +1 if left < right else -1
-            side = 'left' if self.direction == +1 else 'right'
-            self.get_logger().info(
-                f"direction={self.direction} ({side} wall)  "
-                f"l={left:.2f} r={right:.2f} f={front:.2f}")
             self.state = 'LANE_FOLLOW'
 
         elif self.state == 'LANE_FOLLOW':
-            # Symmetric follower: try to be equidistant from left and right walls.
-            # error > 0 → more room on left → turn LEFT (positive angular.z)
-            # error < 0 → more room on right → turn RIGHT
-            # When one wall disappears at a corner, its distance jumps up,
-            # error jumps hard toward that side, and the robot turns into
-            # the open corridor.
-            error = left - right
-            steer = KP * error
-            cmd.linear.x = CRUISE_SPEED
-            cmd.angular.z = max(-MAX_ANGULAR_Z, min(MAX_ANGULAR_Z, steer))
-
-        elif self.state == 'STOP':
-            cmd.linear.x = 0.0
             cmd.angular.z = 0.0
+            cmd.linear.x = CRUISE_SPEED
+            if self.corners_done >= CORNERS_PER_RACE:
+                self.state = 'PARK'
+            if left > 1 or right > 1:
+                self.state = 'CORNER'
+                self.corner_ticks = 0
+                self.corner_yaw = self.yaw
+                # reset the exit debounce on entry
+
+
+        elif self.state == 'CORNER':
+            cmd.angular.z = 1.2
+            cmd.linear.x = 0.15
+            self.corner_ticks += 1
+
+            # Absolute target: after corner N the robot should face
+            # N*90° - TURN_ADJUST. Residual rotation carries it to the true N*90°.
+            target = (self.corners_done + 1) * math.pi / 2 - math.radians(TURN_ADJUST)
+            yaw_err = math.atan2(math.sin(target - self.yaw),
+                                 math.cos(target - self.yaw))
+            if yaw_err <= 0:
+                self.state = 'LANE_FOLLOW'
+                self.corners_done += 1
+
+        elif self.state == 'PARK' :
+            cmd.angular.z = 0.0
+            cmd.linear.x = CRUISE_SPEED
+            if front  > 1:
+                cmd.angular.z = 0.0
+                cmd.linear.x = CRUISE_SPEED
+                if front < 1.5:
+                    self.state = 'STOP'
+            else:
+                cmd.angular.z = 1.2
+                cmd.linear.x = 0.15
+        
+        elif self.state == 'STOP':
+            cmd.angular.z = 0.0
+            cmd.linear.x = 0.0
+
+        # ==================================================================
+        #  YOUR LOGIC GOES HERE.
+        #
+        #  Cheat sheet:
+        #    cmd.linear.x  = forward m/s     (0 = stop, CRUISE_SPEED = go)
+        #    cmd.angular.z = yaw rad/s       (+ = turn left, - = turn right)
+        #    max(-MAX_ANGULAR_Z, min(MAX_ANGULAR_Z, x))     # clamp
+        #    self.state = 'NEXT_STATE'       # transition
+        #    self.corners_done += 1          # count something
+        #    self.get_logger().info("...")   # official ROS log (with stamp)
+        #    print("...", flush=True)        # plain stdout
+        #    self.get_clock().now()          # sim-time-aware timestamp
+        #    (t2 - t1).nanoseconds / 1e9     # elapsed seconds between Time
+        # ==================================================================
+
+        self.last_left = left
+        self.last_right = right
+        self.last_front = front
 
         # Safety override: stop if anything in front ±15° is under 0.15 m.
         if self.latest_scan is not None:
