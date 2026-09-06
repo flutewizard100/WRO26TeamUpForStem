@@ -69,7 +69,7 @@ def median_in_arc(scan: LaserScan, center_rad: float,
             if math.isfinite(r) and scan.range_min < r < scan.range_max]
     if not vals:
         return scan.range_max
-    return sorted(vals)[len(vals) // 2] + math.pi/2
+    return sorted(vals)[len(vals) // 2]
 
 
 def yaw_from_quaternion(q) -> float:
@@ -141,9 +141,9 @@ class OpenChallenge(Node):
 
         # ---- Sensor readings you probably want ----
         # front, left, right — median range in a small arc.
-        front = median_in_arc(scan, 0.0)
-        left = median_in_arc(scan, 8*math.pi /18)
-        right = median_in_arc(scan, -8*math.pi /18)
+        front = median_in_arc(scan, 0.0+math.pi/2)
+        left = median_in_arc(scan, 7*math.pi /18+math.pi/2)
+        right = median_in_arc(scan, -7*math.pi /18+math.pi/2)
         # Diagonals often help for smoother wall-following:
         # front_left  = median_in_arc(scan, math.radians(45))
         # front_right = median_in_arc(scan, math.radians(-45))
