@@ -20,7 +20,7 @@ from launch.actions import (
 )
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, PythonExpression
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
@@ -58,11 +58,11 @@ def _make_rsp(context, *args, **kwargs):
 def generate_launch_description():
     pkg_wro_sim = get_package_share_directory('wro_sim')
 
-    default_world = os.path.join(pkg_wro_sim, 'worlds', 'wro_field.sdf')
+    world_with    = os.path.join(pkg_wro_sim, 'worlds', 'wro_field.sdf')
+    world_without = os.path.join(pkg_wro_sim, 'worlds', 'wro_field_open.sdf')
     default_bridge = os.path.join(pkg_wro_sim, 'config', 'ros_gz_bridge.yaml')
     default_rviz = os.path.join(pkg_wro_sim, 'rviz', 'sim.rviz')
 
-    world = LaunchConfiguration('world')
     use_sim_time = LaunchConfiguration('use_sim_time')
     rviz = LaunchConfiguration('rviz')
     x_pose = LaunchConfiguration('x')
@@ -70,7 +70,13 @@ def generate_launch_description():
     z_pose = LaunchConfiguration('z')
     yaw_pose = LaunchConfiguration('yaw')
 
-    declare_world = DeclareLaunchArgument('world', default_value=default_world)
+    # obstacles:=true (default) → wro_field.sdf (has red/green pillars)
+    # obstacles:=false          → wro_field_open.sdf (no pillars — for open challenge)
+    declare_obstacles = DeclareLaunchArgument('obstacles', default_value='true')
+    world = PythonExpression(
+        ["'", world_with, "' if '", LaunchConfiguration('obstacles'),
+         "'.lower() == 'true' else '", world_without, "'"]
+    )
     declare_use_sim_time = DeclareLaunchArgument(
         'use_sim_time', default_value='true')
     declare_rviz = DeclareLaunchArgument('rviz', default_value='false')
@@ -147,7 +153,7 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        declare_world,
+        declare_obstacles,
         declare_use_sim_time,
         declare_rviz,
         declare_x, declare_y, declare_z, declare_yaw,

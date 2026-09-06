@@ -315,7 +315,6 @@ class ObstacleChallenge(Node):
                     self.goal_from_corner(LANE_LEN, 0.0),
                 ]
 
-
     # ------------------------------------------------------------------------
     # Control loop — runs at 20 Hz
     # ------------------------------------------------------------------------
@@ -328,21 +327,17 @@ class ObstacleChallenge(Node):
         print(f'[tick] detections={len(self.detections)} '
               f'blockArr={len(self.blockPositionsArray)} '
               f'pending={len(self.pending_waypoints)} '
-              f'active_goal={self.active_goal}',
+              f'active_goal={self.active_goal}'
+              f'blocks={self.blockPositionsArray}',
               flush=True)
-
-        if len(self.blockPositionsArray) >= 4:
-            # TODO: follow poses already in the array (replay stored path)
-            pass
-        else:
-            # Detect blocks + decide waypoint for the current section
-            self.addBlocks()
-            if self.blockPositionsArray:
-                self.choosePath(self.blockPositionsArray[-1])
+# Detect blocks + decide waypoint for the current section
+        self.addBlocks()
+        if self.blockPositionsArray:
+            self.choosePath(self.blockPositionsArray[-1])
             # Advance queued waypoints as Nav2 finishes them
-            if self.is_at_goal() and self.pending_waypoints:
-                wx, wy = self.pending_waypoints.pop(0)
-                self.send_nav2_goal(wx, wy)
+        if self.is_at_goal() and self.pending_waypoints:
+            wx, wy = self.pending_waypoints.pop(0)
+            self.send_nav2_goal(wx, wy)
 
         self.cmd_pub.publish(cmd)
 
