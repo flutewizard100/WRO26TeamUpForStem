@@ -43,7 +43,7 @@ CRUISE_SPEED = 0.25            # m/s
 KP = 4.0                       # gain on wall-follow error
 MAX_ANGULAR_Z = 1.5            # rad/s clamp
 TARGET_WALL_DIST = 0.45        # m; if you follow one wall
-CORNERS_PER_RACE = 4          # 4 corners × 3 laps
+CORNERS_PER_RACE = 12          # 4 corners × 3 laps
 CORNER_THRESHOLD = 0.6
 MAX_FRONT = 1.2
 # ============================================================================
@@ -142,8 +142,8 @@ class OpenChallenge(Node):
         # ---- Sensor readings you probably want ----
         # front, left, right — median range in a small arc.
         front = median_in_arc(scan, 0.0)
-        left = median_in_arc(scan, math.pi / 2)
-        right = median_in_arc(scan, -math.pi / 2)
+        left = median_in_arc(scan, 8*math.pi /18)
+        right = median_in_arc(scan, -8*math.pi /18)
         # Diagonals often help for smoother wall-following:
         # front_left  = median_in_arc(scan, math.radians(45))
         # front_right = median_in_arc(scan, math.radians(-45))
@@ -165,13 +165,17 @@ class OpenChallenge(Node):
             cmd.linear.x = CRUISE_SPEED
             if self.corners_done >= CORNERS_PER_RACE:
                 self.state = 'PARK'
-            if left > 1 or right > 1:
-                self.state = 'CORNER'
+            if left > 1.6:
+                self.state = 'CORNER_LEFT'
                 self.corner_ticks = 0           # NEW: reset the tick counter on corner entry
                 self.exit_streak = 0            # reset the exit debounce on entry
+            if right > 1.6:
+                self.state = 'CORNER_RIGHT'
+                self.corner_ticks = 0           # NEW: reset the tick counter on corner entry
+                self.exit_streak = 0   
 
 
-        elif self.state == 'CORNER':
+        elif self.state == 'CORNER_LEFT':
             cmd.angular.z = 1.2
             cmd.linear.x = 0.15
             self.corner_ticks += 1              # NEW: count each tick we stay in CORNER
@@ -186,6 +190,22 @@ class OpenChallenge(Node):
                 self.state = 'LANE_FOLLOW'
                 self.corners_done += 1
                 self.exit_streak = 0
+        elif self.state == 'CORNER_RIGHT':
+            cmd.angular.z = -1.2
+            cmd.linear.x = 0.15
+            self.corner_ticks += 1              # NEW: count each tick we stay in CORNER
+
+            # Debounced exit: condition must hold for 3 ticks in a row.
+            if abs(left + right - 1) < 0.3:
+                self.exit_streak += 1
+            else:
+                self.exit_streak = 0
+
+            if self.exit_streak >= 3:
+                self.state = 'LANE_FOLLOW'
+                self.corners_done += 1
+                self.exit_streak = 0
+
 
         elif self.state == 'PARK' :
             cmd.angular.z = 0.0

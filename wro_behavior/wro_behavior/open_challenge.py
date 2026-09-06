@@ -163,7 +163,7 @@ class OpenChallenge(Node):
         # ---- Build the command you'll publish ----
         # Twist default is zeros — safe if you forget to set something.
         cmd = Twist()
-
+:
         if self.state == 'INIT':
             self.state = 'LANE_FOLLOW'
 
@@ -172,11 +172,13 @@ class OpenChallenge(Node):
             cmd.linear.x = CRUISE_SPEED
             if self.corners_done >= CORNERS_PER_RACE:
                 self.state = 'PARK'
-            if left > 1 or right > 1:
-                self.state = 'CORNER'
+            if left > 1:
+                self.state = 'CORNER_LEFT'
                 self.corner_ticks = 0
                 self.corner_yaw = self.yaw
                 # reset the exit debounce on entry
+            if right > 1:
+                self.state = 'CORNER_RIGHT'
 
 
         elif self.state == 'CORNER':
