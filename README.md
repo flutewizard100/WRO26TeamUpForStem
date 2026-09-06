@@ -1,26 +1,22 @@
 # Contents:
-### 1: Base and drivetrain
-### 1.1: base structure
-### 1.2: drivetrain systems
-### 2: Electronics
-### 2.1: motor and ESC
-### 2.2: servo, steering, and steering controls
-### 2.3: LiDAR and camera
-### 2.4: wiring diagram
-### 3: Software and coding
-### 3.1: Code   
-### 3.2: software
-### 3.3: electronic boards and other components
-### 4: Engineering solutions
+### Team-photos
+### Vehicle-photos
+### Video
+### Schemes
+### Src
+### Models
+### Other
   
 # Team Pictures:
 TODO we need to take them today
 
 # Robot Pictures:
 <p>
-  <img src="image1.png" width="120">
-  <img src="image2.png" width="120">
-  <img src="image3.png" width="120">
-  <img src="image4.png" width="120">
-  <img src="image5.png" width="120">
+  <img src="Pictures/robotPicture.png" height="200">
+  <img src="Pictures/2.png" height="200">
+  <img src="Pictures/3.png" height="200">
+  <img src="Pictures/4.png" height="200">
+  <img src="Pictures/5.png" height="200">
+  <img src="Pictures/6.png" height="200">
+  <img src="Pictures/7.png" height="200">
 </p>
