@@ -35,7 +35,7 @@ def generate_launch_description():
         {'frame_id': 'base_laser'},
         {'port_name': '/dev/serial/by-id/usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001-if00-port0'},
         {'serial_baudrate': 230400},
-        {'laser_scan_dir': False},
+        {'laser_scan_dir': True},
         {'enable_angle_crop_func': False},
         {'angle_crop_min': 135.0},  # unit is degress
         {'angle_crop_max': 225.0},  # unit is degress
