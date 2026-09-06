@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
 from nav_msgs.msg import Odometry
@@ -6,29 +5,52 @@ from geometry_msgs.msg import TransformStamped
 import tf2_ros
 import math
 
-# Import official SparkFun OTOS library
 import qwiic_otos
+from qwiic_i2c.linux_i2c import LinuxI2C
+
+
+class OtosI2C(LinuxI2C):
+    def isDeviceConnected(self, devAddress):
+        try:
+            product_id = self.readByte(devAddress, 0x00)
+            return product_id == 0x5F
+        except Exception:
+            return False
+
+    def is_device_connected(self, devAddress):
+        return self.isDeviceConnected(devAddress)
+
+    def ping(self, devAddress):
+        return self.isDeviceConnected(devAddress)
+
 
 class OtosOdometryNode(Node):
     def __init__(self):
         super().__init__('otos_odometry_node')
-
-        # publish_tf: broadcast odom -> base_link directly. Set False when
-        # ekf_filter_node is running (fusion pipeline) — the EKF becomes the
-        # sole publisher of that TF edge, using OTOS as one of several inputs.
-        # Set True when running OTOS standalone (no fusion). Default is False
-        # to match hardware.launch.py's fusion setup.
         self.declare_parameter('publish_tf', False)
         self._publish_tf = bool(self.get_parameter('publish_tf').value)
 
-        # Initialize publishers and TF broadcasters
+        # Publishers / TF
         self.odom_pub = self.create_publisher(Odometry, 'odom', 10)
-        self.tf_broadcaster = tf2_ros.TransformBroadcaster(self) if self._publish_tf else None
-        
-        # Initialize the hardware sensor via I2C (Fixed Case Sensitivity)
-        self.get_logger().info("Initializing SparkFun OTOS PAA5160E1...")
-        self.sensor = qwiic_otos.QwiicOTOS() 
-        
+
+        self.tf_broadcaster = (
+            tf2_ros.TransformBroadcaster(self)
+            if self._publish_tf
+            else None
+        )
+
+        # ... your existing code ...
+
+        self.get_logger().info(
+            "Initializing SparkFun OTOS PAA5160E1..."
+        )
+
+        i2c = OtosI2C(iBus=7)
+
+        self.sensor = qwiic_otos.QwiicOTOS(
+            address=0x17,
+            i2c_driver=i2c
+        )
         if not self.sensor.is_connected():
             self.get_logger().error("PAA5160E1 Sensor not detected on I2C bus! Check Qwiic connections.")
             return
@@ -36,8 +58,8 @@ class OtosOdometryNode(Node):
         self.sensor.begin()
         
         # Configure Sensor Options (Fixed Case Sensitivity constants)
-        self.sensor.setLinearUnit(qwiic_otos.METER)       
-        self.sensor.setAngularUnit(qwiic_otos.RADIAN)    
+        self.sensor.setLinearUnit(qwiic_otos.QwiicOTOS.kLinearUnitMeters)       
+        self.sensor.setAngularUnit(qwiic_otos.QwiicOTOS.kAngularUnitDegrees)    
         
         # Calibrate IMU (Fixed camelCase syntax)
         self.get_logger().info("Calibrating IMU... Keep the robot still.")
