@@ -245,7 +245,7 @@ class OpenChallenge(Node):
         # Safety override: stop if anything in front ±15° is under 0.15 m.
         if self.latest_scan is not None:
             s = self.latest_scan
-            idx0 = int((0.0 - s.angle_min) / s.angle_increment)
+            idx0 = int((math.pi / 2 - s.angle_min) / s.angle_increment)
             half = int(math.radians(15) / s.angle_increment)
             lo = max(0, idx0 - half)
             hi = min(len(s.ranges), idx0 + half + 1)

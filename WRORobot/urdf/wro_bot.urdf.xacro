@@ -18,14 +18,14 @@
   <!-- TODO(measure): wheel rolling radius (including tire) -->
   <xacro:property name="wheel_radius" value="0.033"/>
   <!-- TODO(measure): tire width -->
-  <xacro:property name="wheel_thickness" value="0.025"/>
+  <xacro:property name="wheel_thickness" value="0.028"/>
   <!-- TODO(measure): mechanical max steer of the front wheels (30 deg) -->
   <xacro:property name="max_steer_angle" value="0.5236"/>
 
   <!-- TODO(measure): chassis outer box from CAD -->
   <xacro:property name="chassis_length" value="0.28"/>
   <xacro:property name="chassis_width" value="0.16"/>
-  <xacro:property name="chassis_height" value="0.14"/>
+  <xacro:property name="chassis_height" value="0.19"/>
 
   <!-- Sensor mount offsets (all in base_link frame). -->
   <!-- TODO(measure): lidar mount position on real bot.
@@ -46,15 +46,16 @@
        plus the camera body half-depth (~0.01). Sitting camera at exactly
        chassis_length/2 puts the sensor inside the chassis geometry and
        renders a blank/single-color image. -->
-  <xacro:property name="camera_x" value="0.16"/>
+  <xacro:property name="camera_x" value="0.2162"/>
   <xacro:property name="camera_y" value="0.0"/>
-  <xacro:property name="camera_z" value="0.06"/>
+  <xacro:property name="camera_z" value="0.0466"/>
+  <!-- Camera pitch: negative = looking down (WRO block detection). -->
+  <xacro:property name="camera_pitch" value="${-20 * pi / 180}"/>
 
   <!-- Derived. -->
   <xacro:property name="half_l" value="${wheelbase/2}"/>
   <xacro:property name="half_t" value="${track_width/2}"/>
   <xacro:property name="chassis_z" value="${wheel_radius + chassis_height/2}"/>
-
   <!-- ============================================================
        Materials (visual only).
        ============================================================ -->
@@ -242,7 +243,7 @@
   <joint name="base_link_to_camera_link" type="fixed">
     <parent link="base_link"/>
     <child link="camera_link"/>
-    <origin xyz="${camera_x} ${camera_y} ${camera_z}" rpy="0 0 0"/>
+    <origin xyz="${camera_x} ${camera_y} ${camera_z}" rpy="0 ${camera_pitch} 0"/>
   </joint>
 
   <!-- ROS image convention frame (Z forward, X right, Y down). Attach the
