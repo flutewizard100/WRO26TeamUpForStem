@@ -119,6 +119,18 @@ class OpenChallenge(Node):
             cmd.linear.x = 0.0
             cmd.angular.z = 0.0
 
+        # Safety override: stop if anything in front ±15° is under 0.15 m.
+        if self.latest_scan is not None:
+            s = self.latest_scan
+            idx0 = int((0.0 - s.angle_min) / s.angle_increment)
+            half = int(math.radians(15) / s.angle_increment)
+            lo = max(0, idx0 - half)
+            hi = min(len(s.ranges), idx0 + half + 1)
+            front = [r for r in s.ranges[lo:hi]
+                     if math.isfinite(r) and s.range_min < r < s.range_max]
+            if front and min(front) < 0.15:
+                cmd.linear.x = 0.0
+                cmd.angular.z = 0.0
         self.cmd_pub.publish(cmd)
 
 

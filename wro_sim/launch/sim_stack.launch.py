@@ -52,8 +52,8 @@ def generate_launch_description():
     declare_run_goto = DeclareLaunchArgument(
         'run_goto', default_value='false')
     declare_x = DeclareLaunchArgument('x', default_value='0.0')
-    declare_y = DeclareLaunchArgument('y', default_value='-1.3')
-    declare_yaw = DeclareLaunchArgument('yaw', default_value='1.5708')
+    declare_y = DeclareLaunchArgument('y', default_value='-1.37')
+    declare_yaw = DeclareLaunchArgument('yaw', default_value='0.0')
 
     # 1. Gazebo + robot_state_publisher + spawn + bridges (+ optional RViz).
     sim = IncludeLaunchDescription(
