@@ -147,9 +147,9 @@ class OpenChallenge(Node):
 
         # ---- Sensor readings you probably want ----
         # front, left, right — median range in a small arc.
-        front = median_in_arc(scan, 0.0)
-        left = median_in_arc(scan, math.pi / 2)
-        right = median_in_arc(scan, -math.pi / 2)
+        front = median_in_arc(scan, -math.pi / 2)
+        left = median_in_arc(scan, 0.0)
+        right = median_in_arc(scan, math.pi)
         # Diagonals often help for smoother wall-following:
         # front_left  = median_in_arc(scan, math.radians(45))
         # front_right = median_in_arc(scan, math.radians(-45))

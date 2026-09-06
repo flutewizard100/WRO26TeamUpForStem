@@ -39,19 +39,27 @@ def generate_launch_description():
         {'enable_angle_crop_func': False},
         {'angle_crop_min': 135.0},  # unit is degress
         {'angle_crop_max': 225.0},  # unit is degress
-        {'range_min': 0.02}, # unit is meter
+        {'range_min': 0.0}, # unit is meter
         {'range_max': 12.0}   # unit is meter
       ]
   )
 
-  # base_link to base_laser tf node
   base_link_to_laser_tf_node = Node(
-    package='tf2_ros',
-    executable='static_transform_publisher',
-    name='base_link_to_base_laser_ld19',
-    arguments=['-0.02','0','0','0','0','0','base_link','base_laser']
+      package='tf2_ros',
+      executable='static_transform_publisher',
+      name='base_link_to_base_laser_ld19',
+      # Switched to explicit named flags to safely parse negative floating points
+      arguments=[
+          '--x', '-0.02',
+          '--y', '0.0',
+          '--z', '0.0',
+          '--yaw', '1.571', # 90 degrees clockwise correction
+          '--pitch', '0.0',
+          '--roll', '0.0',
+          '--frame-id', 'base_link',
+          '--child-frame-id', 'base_laser'
+      ]
   )
-
 
   # Define LaunchDescription variable
   ld = LaunchDescription()
