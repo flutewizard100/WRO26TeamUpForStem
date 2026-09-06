@@ -27,6 +27,7 @@ setup(
             'pillar_detector = wro_behavior.pillar_detector:main',
             'open_challenge = wro_behavior.open_challenge:main',
             'open_challenge_template = wro_behavior.open_challenge_template:main',
+            'new_open_challenge = wro_behavior.new_open_challenge:main',
             'obstacle_challenge_template = wro_behavior.obstacle_challenge_template:main',
             'obstacle_challenge_skeleton = wro_behavior.obstacle_challenge_skeleton:main',
             'sim_limelight_bridge = wro_behavior.sim_limelight_bridge:main',

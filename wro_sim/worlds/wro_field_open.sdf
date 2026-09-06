@@ -556,14 +556,18 @@
          For exact printed markings, use the official field-mat image
          as the floor texture.
     -->
-    <model name="orange_line_north">
+    <!-- Diagonal corner lines per WRO rulebook.
+           Each corner has one orange + one blue line, both anchored at the
+           inner-track corner and extending outward to the outer wall. Line
+           length ≈ 1.118 m, width 20 mm. -->
+    <model name="orange_line_sw">
       <static>true</static>
-      <pose>-0.55 1.25 0.0015 0 0 0</pose>
+      <pose>-0.75 -1.0 0.0015 0 0 -2.0344439357957027</pose>
       <link name="link">
         <visual name="visual">
           <geometry>
             <box>
-              <size>0.45 0.02 0.001</size>
+              <size>1.118 0.02 0.001</size>
             </box>
           </geometry>
           <material>
@@ -574,14 +578,32 @@
         </visual>
       </link>
     </model>
-    <model name="orange_line_south">
+    <model name="blue_line_sw">
       <static>true</static>
-      <pose>0.55 -1.25 0.0015 0 0 0</pose>
+      <pose>-1.0 -0.75 0.0015 0 0 -2.677945044588987</pose>
       <link name="link">
         <visual name="visual">
           <geometry>
             <box>
-              <size>0.45 0.02 0.001</size>
+              <size>1.118 0.02 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.0 0.2 0.6 1</ambient>
+            <diffuse>0.0 0.2 0.6 1</diffuse>
+            <specular>0 0 0 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="orange_line_se">
+      <static>true</static>
+      <pose>0.75 -1.0 0.0015 0 0 -1.1071487177940904</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>1.118 0.02 0.001</size>
             </box>
           </geometry>
           <material>
@@ -592,14 +614,32 @@
         </visual>
       </link>
     </model>
-    <model name="orange_line_east">
+    <model name="blue_line_se">
       <static>true</static>
-      <pose>1.25 0.55 0.0015 0 0 1.5707963267948966</pose>
+      <pose>1.0 -0.75 0.0015 0 0 -0.4636476090008061</pose>
       <link name="link">
         <visual name="visual">
           <geometry>
             <box>
-              <size>0.45 0.02 0.001</size>
+              <size>1.118 0.02 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.0 0.2 0.6 1</ambient>
+            <diffuse>0.0 0.2 0.6 1</diffuse>
+            <specular>0 0 0 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="orange_line_ne">
+      <static>true</static>
+      <pose>0.75 1.0 0.0015 0 0 1.1071487177940904</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>1.118 0.02 0.001</size>
             </box>
           </geometry>
           <material>
@@ -610,14 +650,32 @@
         </visual>
       </link>
     </model>
-    <model name="orange_line_west">
+    <model name="blue_line_ne">
       <static>true</static>
-      <pose>-1.25 -0.55 0.0015 0 0 1.5707963267948966</pose>
+      <pose>1.0 0.75 0.0015 0 0 0.4636476090008061</pose>
       <link name="link">
         <visual name="visual">
           <geometry>
             <box>
-              <size>0.45 0.02 0.001</size>
+              <size>1.118 0.02 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.0 0.2 0.6 1</ambient>
+            <diffuse>0.0 0.2 0.6 1</diffuse>
+            <specular>0 0 0 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="orange_line_nw">
+      <static>true</static>
+      <pose>-0.75 1.0 0.0015 0 0 2.0344439357957027</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>1.118 0.02 0.001</size>
             </box>
           </geometry>
           <material>
@@ -628,73 +686,19 @@
         </visual>
       </link>
     </model>
-    <model name="blue_line_north">
+    <model name="blue_line_nw">
       <static>true</static>
-      <pose>0.55 1.25 0.0015 0 0 0</pose>
+      <pose>-1.0 0.75 0.0015 0 0 2.677945044588987</pose>
       <link name="link">
         <visual name="visual">
           <geometry>
             <box>
-              <size>0.45 0.02 0.001</size>
+              <size>1.118 0.02 0.001</size>
             </box>
           </geometry>
           <material>
-            <ambient>0.0 0.2 0.8 1</ambient>
-            <diffuse>0.0 0.2 0.8 1</diffuse>
-            <specular>0 0 0 1</specular>
-          </material>
-        </visual>
-      </link>
-    </model>
-    <model name="blue_line_south">
-      <static>true</static>
-      <pose>-0.55 -1.25 0.0015 0 0 0</pose>
-      <link name="link">
-        <visual name="visual">
-          <geometry>
-            <box>
-              <size>0.45 0.02 0.001</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.0 0.2 0.8 1</ambient>
-            <diffuse>0.0 0.2 0.8 1</diffuse>
-            <specular>0 0 0 1</specular>
-          </material>
-        </visual>
-      </link>
-    </model>
-    <model name="blue_line_east">
-      <static>true</static>
-      <pose>1.25 -0.55 0.0015 0 0 1.5707963267948966</pose>
-      <link name="link">
-        <visual name="visual">
-          <geometry>
-            <box>
-              <size>0.45 0.02 0.001</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.0 0.2 0.8 1</ambient>
-            <diffuse>0.0 0.2 0.8 1</diffuse>
-            <specular>0 0 0 1</specular>
-          </material>
-        </visual>
-      </link>
-    </model>
-    <model name="blue_line_west">
-      <static>true</static>
-      <pose>-1.25 0.55 0.0015 0 0 1.5707963267948966</pose>
-      <link name="link">
-        <visual name="visual">
-          <geometry>
-            <box>
-              <size>0.45 0.02 0.001</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.0 0.2 0.8 1</ambient>
-            <diffuse>0.0 0.2 0.8 1</diffuse>
+            <ambient>0.0 0.2 0.6 1</ambient>
+            <diffuse>0.0 0.2 0.6 1</diffuse>
             <specular>0 0 0 1</specular>
           </material>
         </visual>

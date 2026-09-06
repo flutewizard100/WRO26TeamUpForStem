@@ -623,55 +623,58 @@
 
     <xacro:unless value="$(arg use_mat_texture)">
 
-      <!-- Orange reference lines -->
+      <!-- Diagonal corner lines per WRO rulebook.
+           Each corner has one orange + one blue line, both anchored at the
+           inner-track corner and extending outward to the outer wall. Line
+           length ≈ 1.118 m, width 20 mm. -->
+
+      <!-- SW corner (inner (-0.5, -0.5)) -->
       <xacro:floor_line
-        name="orange_line_north"
-        x="-0.55" y="1.25" yaw="0"
-        length="0.45" width="0.02"
+        name="orange_line_sw"
+        x="-0.75" y="-1.0" yaw="${atan2(-1.0, -0.5)}"
+        length="1.118" width="0.02"
         r="1.0" g="0.40" b="0.0"/>
-
       <xacro:floor_line
-        name="orange_line_south"
-        x="0.55" y="-1.25" yaw="0"
-        length="0.45" width="0.02"
+        name="blue_line_sw"
+        x="-1.0" y="-0.75" yaw="${atan2(-0.5, -1.0)}"
+        length="1.118" width="0.02"
+        r="0.0" g="0.20" b="0.60"/>
+
+      <!-- SE corner (inner (0.5, -0.5)) -->
+      <xacro:floor_line
+        name="orange_line_se"
+        x="0.75" y="-1.0" yaw="${atan2(-1.0, 0.5)}"
+        length="1.118" width="0.02"
         r="1.0" g="0.40" b="0.0"/>
-
       <xacro:floor_line
-        name="orange_line_east"
-        x="1.25" y="0.55" yaw="${pi / 2.0}"
-        length="0.45" width="0.02"
+        name="blue_line_se"
+        x="1.0" y="-0.75" yaw="${atan2(-0.5, 1.0)}"
+        length="1.118" width="0.02"
+        r="0.0" g="0.20" b="0.60"/>
+
+      <!-- NE corner (inner (0.5, 0.5)) -->
+      <xacro:floor_line
+        name="orange_line_ne"
+        x="0.75" y="1.0" yaw="${atan2(1.0, 0.5)}"
+        length="1.118" width="0.02"
         r="1.0" g="0.40" b="0.0"/>
-
       <xacro:floor_line
-        name="orange_line_west"
-        x="-1.25" y="-0.55" yaw="${pi / 2.0}"
-        length="0.45" width="0.02"
+        name="blue_line_ne"
+        x="1.0" y="0.75" yaw="${atan2(0.5, 1.0)}"
+        length="1.118" width="0.02"
+        r="0.0" g="0.20" b="0.60"/>
+
+      <!-- NW corner (inner (-0.5, 0.5)) -->
+      <xacro:floor_line
+        name="orange_line_nw"
+        x="-0.75" y="1.0" yaw="${atan2(1.0, -0.5)}"
+        length="1.118" width="0.02"
         r="1.0" g="0.40" b="0.0"/>
-
-      <!-- Blue reference lines -->
       <xacro:floor_line
-        name="blue_line_north"
-        x="0.55" y="1.25" yaw="0"
-        length="0.45" width="0.02"
-        r="0.0" g="0.20" b="0.80"/>
-
-      <xacro:floor_line
-        name="blue_line_south"
-        x="-0.55" y="-1.25" yaw="0"
-        length="0.45" width="0.02"
-        r="0.0" g="0.20" b="0.80"/>
-
-      <xacro:floor_line
-        name="blue_line_east"
-        x="1.25" y="-0.55" yaw="${pi / 2.0}"
-        length="0.45" width="0.02"
-        r="0.0" g="0.20" b="0.80"/>
-
-      <xacro:floor_line
-        name="blue_line_west"
-        x="-1.25" y="0.55" yaw="${pi / 2.0}"
-        length="0.45" width="0.02"
-        r="0.0" g="0.20" b="0.80"/>
+        name="blue_line_nw"
+        x="-1.0" y="0.75" yaw="${atan2(0.5, -1.0)}"
+        length="1.118" width="0.02"
+        r="0.0" g="0.20" b="0.60"/>
 
     </xacro:unless>
 

@@ -60,6 +60,14 @@ RED_HSV_HIGH_2 = (179, 255, 255)
 GREEN_HSV_LOW  = (40,  100, 80)
 GREEN_HSV_HIGH = (80,  255, 255)
 
+# Floor lines. Wider H tolerance than pillars because the mat colour differs
+# a bit from a solid-plastic pillar.
+ORANGE_HSV_LOW  = (5,   120, 100)
+ORANGE_HSV_HIGH = (20,  255, 255)
+BLUE_HSV_LOW    = (100, 120, 60)
+BLUE_HSV_HIGH   = (130, 255, 255)
+MIN_LINE_AREA   = 200            # pixels; lines are thin so lower than pillars
+
 MIN_BLOB_AREA = 300
 FRAME_ID = 'camera_optical_frame'
 
@@ -85,17 +93,26 @@ class SimLimelightBridge(Node):
 
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-        red_mask = (cv2.inRange(hsv, RED_HSV_LOW_1, RED_HSV_HIGH_1)
-                    | cv2.inRange(hsv, RED_HSV_LOW_2, RED_HSV_HIGH_2))
-        green_mask = cv2.inRange(hsv, GREEN_HSV_LOW, GREEN_HSV_HIGH)
+        red_mask    = (cv2.inRange(hsv, RED_HSV_LOW_1, RED_HSV_HIGH_1)
+                       | cv2.inRange(hsv, RED_HSV_LOW_2, RED_HSV_HIGH_2))
+        green_mask  = cv2.inRange(hsv, GREEN_HSV_LOW, GREEN_HSV_HIGH)
+        orange_mask = cv2.inRange(hsv, ORANGE_HSV_LOW, ORANGE_HSV_HIGH)
+        blue_mask   = cv2.inRange(hsv, BLUE_HSV_LOW,   BLUE_HSV_HIGH)
 
         detections: List[Detection2D] = []
         stamp = msg.header.stamp    # keep the camera capture stamp
 
+        # Pillars — 3D pose from bbox height (real objects).
         for class_name, mask in (('red_pillar', red_mask),
                                  ('green_pillar', green_mask)):
-            for det in self.extract_detections(mask):
+            for det in self.extract_detections(mask, min_area=MIN_BLOB_AREA):
                 detections.append(self.build_detection(det, class_name, stamp))
+
+        # Floor lines — flat markers. Same message format, but pose.z ≈ 0.
+        for class_name, mask in (('orange_line', orange_mask),
+                                 ('blue_line',   blue_mask)):
+            for det in self.extract_detections(mask, min_area=MIN_LINE_AREA):
+                detections.append(self.build_line_detection(det, class_name, stamp))
 
         out = Detection2DArray()
         out.header.stamp = stamp
@@ -104,7 +121,7 @@ class SimLimelightBridge(Node):
         self.pub.publish(out)
 
     # ------------------------------------------------------------------------
-    def extract_detections(self, mask: np.ndarray
+    def extract_detections(self, mask: np.ndarray, min_area: int = MIN_BLOB_AREA
                            ) -> List[Tuple[float, float, float, float]]:
         """Return list of (cx, cy, bbox_w, bbox_h) for blobs above min area."""
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL,
@@ -112,7 +129,7 @@ class SimLimelightBridge(Node):
         out = []
         for c in contours:
             area = cv2.contourArea(c)
-            if area < MIN_BLOB_AREA:
+            if area < min_area:
                 continue
             x, y, w, h = cv2.boundingRect(c)
             if w <= 0 or h <= 0:
@@ -123,6 +140,49 @@ class SimLimelightBridge(Node):
         return out
 
     # ------------------------------------------------------------------------
+    def build_line_detection(self, det, class_name: str, stamp) -> Detection2D:
+        """Build a Detection2D for a floor line. Same message shape as pillars
+        but pose is meaningless (flat marker), so z is set from a rough ground
+        projection using the pixel row (cy) and camera intrinsics only in x."""
+        cx, cy, bbox_w, bbox_h = det
+        # Rough forward distance from the pixel row (assumes camera looking
+        # slightly down; you may need to tune). If unused downstream, safe
+        # placeholder is (0, 0, 0).
+        z_cam = 0.0
+        x_cam = (cx - CX) * 0.001    # tiny nonzero so it's not exactly (0,0,0)
+        y_cam = (cy - CY) * 0.001
+
+        d = Detection2D()
+        d.header.stamp = stamp
+        d.header.frame_id = FRAME_ID
+        d.bbox = BoundingBox2D()
+        d.bbox.center.position.x = float(cx)
+        d.bbox.center.position.y = float(cy)
+        d.bbox.center.theta = 0.0
+        d.bbox.size_x = float(bbox_w)
+        d.bbox.size_y = float(bbox_h)
+
+        hyp = ObjectHypothesisWithPose()
+        hyp.hypothesis = ObjectHypothesis()
+        hyp.hypothesis.class_id = class_name
+        hyp.hypothesis.score = 1.0
+        hyp.pose.pose = Pose()
+        hyp.pose.pose.position.x = float(x_cam)
+        hyp.pose.pose.position.y = float(y_cam)
+        hyp.pose.pose.position.z = float(z_cam)
+        hyp.pose.pose.orientation.w = 1.0
+        # Large covariance — line poses are unreliable.
+        hyp.pose.covariance = [0.0] * 36
+        hyp.pose.covariance[0]  = 1.0
+        hyp.pose.covariance[7]  = 1.0
+        hyp.pose.covariance[14] = 1.0
+        hyp.pose.covariance[21] = 1e6
+        hyp.pose.covariance[28] = 1e6
+        hyp.pose.covariance[35] = 1e6
+
+        d.results.append(hyp)
+        return d
+
     def build_detection(self, det, class_name: str, stamp) -> Detection2D:
         cx, cy, bbox_w, bbox_h = det
 

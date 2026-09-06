@@ -72,7 +72,7 @@ def generate_launch_description():
 
     # obstacles:=true (default) → wro_field.sdf (has red/green pillars)
     # obstacles:=false          → wro_field_open.sdf (no pillars — for open challenge)
-    declare_obstacles = DeclareLaunchArgument('obstacles', default_value='true')
+    declare_obstacles = DeclareLaunchArgument('obstacles', default_value='false')
     world = PythonExpression(
         ["'", world_with, "' if '", LaunchConfiguration('obstacles'),
          "'.lower() == 'true' else '", world_without, "'"]
@@ -81,7 +81,7 @@ def generate_launch_description():
         'use_sim_time', default_value='true')
     declare_rviz = DeclareLaunchArgument('rviz', default_value='false')
     declare_x = DeclareLaunchArgument('x', default_value='0.0')
-    declare_y = DeclareLaunchArgument('y', default_value='-1.37')
+    declare_y = DeclareLaunchArgument('y', default_value='1.0')
     declare_z = DeclareLaunchArgument('z', default_value='0.103')
     declare_yaw = DeclareLaunchArgument('yaw', default_value='0.0')
 
