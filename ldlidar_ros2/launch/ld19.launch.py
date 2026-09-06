@@ -53,7 +53,7 @@ def generate_launch_description():
           '--x', '-0.02',
           '--y', '0.0',
           '--z', '0.0',
-          '--yaw', '1.571', # 90 degrees clockwise correction
+          '--yaw', '-1.571', # 90 degrees clockwise correction
           '--pitch', '0.0',
           '--roll', '0.0',
           '--frame-id', 'base_link',
