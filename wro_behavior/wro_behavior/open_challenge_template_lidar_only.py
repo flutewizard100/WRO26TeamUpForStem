@@ -69,7 +69,7 @@ def median_in_arc(scan: LaserScan, center_rad: float,
             if math.isfinite(r) and scan.range_min < r < scan.range_max]
     if not vals:
         return scan.range_max
-    return sorted(vals)[len(vals) // 2]
+    return sorted(vals)[len(vals) // 2] + math.pi/2
 
 
 def yaw_from_quaternion(q) -> float:
@@ -210,10 +210,10 @@ class OpenChallenge(Node):
         elif self.state == 'PARK' :
             cmd.angular.z = 0.0
             cmd.linear.x = CRUISE_SPEED
-            if front  > 1:
+            if front  > 0.7:
                 cmd.angular.z = 0.0
                 cmd.linear.x = CRUISE_SPEED
-                if front < 1.5:
+                if front < 1.2:
                     self.state = 'STOP'
             else:
                 cmd.angular.z = 1.2
