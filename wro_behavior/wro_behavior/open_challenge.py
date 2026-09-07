@@ -163,7 +163,6 @@ class OpenChallenge(Node):
         # ---- Build the command you'll publish ----
         # Twist default is zeros — safe if you forget to set something.
         cmd = Twist()
-:
         if self.state == 'INIT':
             self.state = 'LANE_FOLLOW'
 

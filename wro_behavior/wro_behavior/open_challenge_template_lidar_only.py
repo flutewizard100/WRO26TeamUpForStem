@@ -165,11 +165,11 @@ class OpenChallenge(Node):
             cmd.linear.x = CRUISE_SPEED
             if self.corners_done >= CORNERS_PER_RACE:
                 self.state = 'PARK'
-            if left > 1.6:
+            if 4 > left and left > 1.6:
                 self.state = 'CORNER_LEFT'
                 self.corner_ticks = 0           # NEW: reset the tick counter on corner entry
                 self.exit_streak = 0            # reset the exit debounce on entry
-            if right > 1.6:
+            if 4 > right and right > 1.6:
                 self.state = 'CORNER_RIGHT'
                 self.corner_ticks = 0           # NEW: reset the tick counter on corner entry
                 self.exit_streak = 0   
