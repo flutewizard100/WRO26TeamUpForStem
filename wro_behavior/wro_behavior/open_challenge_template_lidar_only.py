@@ -181,7 +181,7 @@ class OpenChallenge(Node):
             self.corner_ticks += 1              # NEW: count each tick we stay in CORNER
 
             # Debounced exit: condition must hold for 3 ticks in a row.
-            if abs(left + right - 1) < 0.3:
+            if left < 1 and right < 1:
                 self.exit_streak += 1
             else:
                 self.exit_streak = 0
@@ -196,7 +196,7 @@ class OpenChallenge(Node):
             self.corner_ticks += 1              # NEW: count each tick we stay in CORNER
 
             # Debounced exit: condition must hold for 3 ticks in a row.
-            if abs(left + right - 1) < 0.3:
+            if left < 1 and right < 1:
                 self.exit_streak += 1
             else:
                 self.exit_streak = 0

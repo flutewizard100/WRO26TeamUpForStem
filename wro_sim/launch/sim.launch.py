@@ -142,6 +142,25 @@ def generate_launch_description():
         output='screen',
     )
 
+    # Laser scan filter chain — same config as the real robot, so sim and
+    # hardware behave identically. Reads raw sim output on /scan_raw,
+    # publishes cleaned data on /scan.
+    scan_filter = Node(
+        package='laser_filters',
+        executable='scan_to_scan_filter_chain',
+        name='scan_filter',
+        output='screen',
+        parameters=[
+            os.path.join(get_package_share_directory('WRORobot'),
+                         'config', 'scan_fillter.yaml'),
+            {'use_sim_time': use_sim_time},
+        ],
+        remappings=[
+            ('scan', '/scan_raw'),
+            ('scan_filtered', '/scan'),
+        ],
+    )
+
     rviz2 = Node(
         package='rviz2',
         executable='rviz2',
@@ -162,5 +181,6 @@ def generate_launch_description():
         spawn,
         bridge,
         image_bridge,
+        scan_filter,
         rviz2,
     ])

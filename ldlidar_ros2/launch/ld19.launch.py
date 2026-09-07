@@ -30,17 +30,17 @@ def generate_launch_description():
       output='screen',
       parameters=[
         {'product_name': 'LDLiDAR_LD19'},
-        {'laser_scan_topic_name': 'scan'},
+        {'laser_scan_topic_name': 'scan_raw'},
         {'point_cloud_2d_topic_name': 'pointcloud2d'},
         {'frame_id': 'base_laser'},
         {'port_name': '/dev/serial/by-id/usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001-if00-port0'},
         {'serial_baudrate': 230400},
         {'laser_scan_dir': True},
         {'enable_angle_crop_func': False},
-        {'angle_crop_min': 135.0},  # unit is degress
-        {'angle_crop_max': 225.0},  # unit is degress
-        {'range_min': 0.0}, # unit is meter
-        {'range_max': 12.0}   # unit is meter
+        {'angle_crop_min': 225.0},  # unit is degress
+        {'angle_crop_max': 315.0},  # unit is degress
+        {'range_min': 0.05}, # unit is meter
+        {'range_max': 3.0}   # unit is meter
       ]
   )
 

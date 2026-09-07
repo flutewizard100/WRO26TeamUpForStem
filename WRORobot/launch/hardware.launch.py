@@ -84,6 +84,22 @@ def generate_launch_description():
         lidar_launch,
         rsp,
 
+        # Laser scan filter chain — drops self-hits (< 10 cm) and max-range
+        # phantoms (> 4 m), plus a speckle filter for isolated noise dots.
+        # Reads raw driver output on /scan_raw, publishes cleaned scan on
+        # /scan — behavior code subscribes to /scan as usual.
+        Node(
+            package='laser_filters',
+            executable='scan_to_scan_filter_chain',
+            name='scan_filter',
+            output='screen',
+            parameters=[_config_path('scan_fillter.yaml')],
+            remappings=[
+                ('scan', '/scan_raw'),
+                ('scan_filtered', '/scan'),
+            ],
+        ),
+
         Node(
             package='WRORobot',
             executable='HighController',
