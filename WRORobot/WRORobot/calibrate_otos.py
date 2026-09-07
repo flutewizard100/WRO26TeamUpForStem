@@ -1,50 +1,18 @@
-"""OTOS covariance calibration helper.
-
-Reads a rosbag2 recording of /odom (and optionally /imu/data), computes the
-sample standard deviation of the fields fed into the EKF, and prints the
-recommended values for the six `_std` parameters on the otos_node.
-
-Usage:
-    # LIVE (fastest — no bag round-trip). With hardware.launch.py running:
-    ros2 run WRORobot calibrate_otos --live 10                 # static
-    ros2 run WRORobot calibrate_otos --live 10 --steady-state  # driving
-
-    # BAG (if you'd rather record once and analyze later):
-    #   ros2 bag record -o static   /odom /imu/data -d 10
-    #   ros2 bag record -o straight /odom /imu/data -d 15   # drive straight
-    #   ros2 bag record -o rotate   /odom /imu/data -d 15   # rotate in place
-    ros2 run WRORobot calibrate_otos static
-    ros2 run WRORobot calibrate_otos straight --steady-state
-    ros2 run WRORobot calibrate_otos rotate   --steady-state
-
-The --steady-state flag trims the first and last 10% of samples so
-acceleration/deceleration transients don't inflate the noise estimate.
-Use it for dynamic captures (straight, rotate); leave off for static.
-
-Output is a block of YAML you can paste under `parameters=` in
-WRORobot/launch/hardware.launch.py.
-"""
-
 import argparse
 import math
 import statistics
 import sys
 import time
-from pathlib import Path
 
 try:
     import rclpy
     from rclpy.node import Node
-    from rclpy.serialization import deserialize_message
-    from rosidl_runtime_py.utilities import get_message
-    import rosbag2_py
     from nav_msgs.msg import Odometry
     from sensor_msgs.msg import Imu
 except ImportError as exc:
     print(
-        "This helper requires rclpy / rosbag2_py — run it inside a "
-        "sourced ROS 2 environment.\n"
-        f"Import error: {exc}",
+        "This helper requires rclpy — run it inside a sourced ROS 2 "
+        f"environment.\nImport error: {exc}",
         file=sys.stderr,
     )
     sys.exit(2)
@@ -74,50 +42,6 @@ IMU_FIELDS = {
     'imu.ay':   lambda m: m.linear_acceleration.y,
     'imu.wz':   lambda m: m.angular_velocity.z,
 }
-
-
-# --- Bag reading -----------------------------------------------------------
-
-def _open_reader(bag_dir):
-    storage_options = rosbag2_py.StorageOptions(
-        uri=str(bag_dir),
-        storage_id='sqlite3',
-    )
-    converter_options = rosbag2_py.ConverterOptions(
-        input_serialization_format='cdr',
-        output_serialization_format='cdr',
-    )
-    reader = rosbag2_py.SequentialReader()
-    reader.open(storage_options, converter_options)
-    return reader
-
-
-def _collect_samples(bag_dir, wanted_topics):
-    """Return {topic: [msg, msg, ...]} for every message on wanted_topics."""
-    reader = _open_reader(bag_dir)
-    type_by_topic = {
-        info.name: info.type for info in reader.get_all_topics_and_types()
-    }
-
-    missing = [t for t in wanted_topics if t not in type_by_topic]
-    if missing:
-        print(
-            f"Bag {bag_dir} does not contain topic(s): {', '.join(missing)}. "
-            f"Present topics: {sorted(type_by_topic)}",
-            file=sys.stderr,
-        )
-
-    samples = {t: [] for t in wanted_topics if t in type_by_topic}
-    msg_cls = {
-        t: get_message(type_by_topic[t]) for t in samples
-    }
-
-    while reader.has_next():
-        topic, raw, _t = reader.read_next()
-        if topic in samples:
-            samples[topic].append(deserialize_message(raw, msg_cls[topic]))
-
-    return samples
 
 
 # --- Live capture ----------------------------------------------------------
@@ -233,7 +157,7 @@ def print_recommendation(stds):
     print("            }],")
     print()
     print(
-        'Use the LARGER value between static and dynamic bags for each '
+        'Use the LARGER value between static and dynamic captures for each '
         'parameter. Do not trust any std < 1e-4 — that is below the '
         "sensor's real precision and likely an artifact."
     )
@@ -242,43 +166,13 @@ def print_recommendation(stds):
 # --- Main ------------------------------------------------------------------
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(
-        prog='calibrate_otos',
-        description='Compute OTOS covariance parameters from live topics or a rosbag2 recording.',
-    )
-    parser.add_argument(
-        'bag', nargs='?',
-        help='Path to a rosbag2 directory (e.g. ./static/). Omit when using --live.',
-    )
-    parser.add_argument(
-        '--live', type=float, metavar='SECONDS',
-        help='Skip the bag; subscribe to /odom + /imu/data for this many seconds instead.',
-    )
-    parser.add_argument(
-        '--steady-state', action='store_true',
-        help='Trim first/last 10%% of samples. Use for dynamic captures.',
-    )
-    args = parser.parse_args(argv)
-
-    if args.live is not None:
-        if args.live <= 0:
-            print('--live SECONDS must be positive.', file=sys.stderr)
-            return 1
-        samples = _collect_live(args.live)
-    else:
-        if not args.bag:
-            parser.error('provide a bag path, or use --live SECONDS')
-        bag_path = Path(args.bag)
-        if not bag_path.is_dir():
-            print(f'Not a directory: {bag_path}', file=sys.stderr)
-            return 1
-        samples = _collect_samples(bag_path, ['/odom', '/imu/data'])
-
+   
+    samples = _collect_live(15)
     if not samples or not any(samples.values()):
         print('No /odom or /imu/data messages captured.', file=sys.stderr)
         return 1
 
-    stds = analyze(samples, args.steady_state)
+    stds = analyze(samples, true)
     print_recommendation(stds)
     return 0
 

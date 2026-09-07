@@ -164,7 +164,7 @@ class OpenChallenge(Node):
             cmd.angular.z = 0.0
             cmd.linear.x = CRUISE_SPEED
             if self.corners_done >= CORNERS_PER_RACE:
-                self.state = 'PARK'
+                self.state = 'STOP'
             if 4 > left and left > 1.6:
                 self.state = 'CORNER_LEFT'
                 self.corner_ticks = 0           # NEW: reset the tick counter on corner entry

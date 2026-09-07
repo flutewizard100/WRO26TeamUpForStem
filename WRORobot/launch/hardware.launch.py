@@ -108,6 +108,15 @@ def generate_launch_description():
         ),
 
         Node(
+
+            package='WRORobot',
+            executable='calibrate_otos',
+            name='calibrate_otos',
+            output='screen',
+       ),
+
+
+        Node(
             package='WRORobot',
             executable='Motor',
             name='Motor',
@@ -126,7 +135,18 @@ def generate_launch_description():
             executable='otos_node',
             name='otos_odometry_node',
             output='screen',
-            parameters=[{'publish_tf': False}],  # EKF owns odom->base_link now
+            parameters=[{
+                'publish_tf': False,  # EKF owns odom->base_link now
+                # Measurement noise (std dev) for EKF weighting. Tune
+                # empirically: drive a known trajectory, compare /odom
+                # to ground truth, adjust up/down.
+                'pose_xy_std':   0.02,   # 2 cm
+                'pose_yaw_std':  0.02,   # ~1.15 deg
+                'twist_xy_std':  0.05,   # 5 cm/s
+                'twist_yaw_std': 0.05,   # ~2.9 deg/s
+                'accel_std':     0.10,   # 0.1 m/s^2
+                'gyro_std':      0.02,   # 0.02 rad/s
+            }],
         ),
 
         # robot_localization EKF — fuses OTOS + IMU + scan matcher into a

@@ -19,9 +19,9 @@ ekf_filter_node:
     # Fuse x, y, yaw, vx, vy, vyaw. Not fusing z/roll/pitch/vz (2D mode
     # zeros them anyway).
     #
-    # NOTE: otos_node currently publishes zero covariance. EKF weighting
-    # against this source is not meaningful until task #10 populates real
-    # covariance. Fusion works; graceful degradation weighting does not.
+    # otos_node publishes diagonal covariance driven by parameters
+    # (pose_xy_std, pose_yaw_std, twist_xy_std, twist_yaw_std). Tune
+    # those in the launch file — do NOT scale here.
     # ------------------------------------------------------------------
     odom0: /odom
     odom0_config: [true,  true,  false,    # x, y, z

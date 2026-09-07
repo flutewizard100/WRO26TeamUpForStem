@@ -38,6 +38,7 @@ setup(
             'Servo = WRORobot.Servo:main',
             'otos_node = WRORobot.otos_node:main',
             'limelight_bridge = WRORobot.limelight_bridge:main',
+            'calibrate_otos = WRORobot.calibrate_otos:main',
         ],
     },
 
