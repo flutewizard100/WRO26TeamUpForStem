@@ -13,6 +13,13 @@ slam_toolbox:
     coarse_search_angle_offset: 0.349
     coarse_linear_search_factor: 0.5
 
+    minimum_travel_distance: 0.1     # 10 cm — was 0.5 by default
+    minimum_travel_heading: 0.15     # ~9 deg — was 0.5 rad
+    map_update_interval: 1.0         # 1 s — was 5.0 s
+    resolution: 0.05                 # 5 cm cells (fine for WRO)
+    max_laser_range: 3.0             # match LD19 range_max
+
+
     qos_overrides:
       /scan:
         subscription:
