@@ -119,3 +119,21 @@ TODO Sagnik & Gregory Write what the camera is trained on and how it was done li
 # Lidar
 
 The autonomous vehicle uses the LiDAR which shoots out laser scans in all 360 degrees in order to make a map of the field. LiDAR We chose to use the liDAR model DTOF LD19 because of it's compact size which allowed it to be stored in the robot without affecting it's weight too heavily. Additionally, the DTOF LiDAR measures the exact travel time of a single laser pulse that emits at a frequency of 4500 hz, hence the name DTOF, which stands for Direct Time-Of-Flight. Unlike other LiDAR models, which use a camera sensor to measure the angle of the laser dot to calculate distances, the accuracy of DTOF is not as constrained, having a range of 12 meters, because it measures the time of flight rather than using a built-in camera to track the distance.
+
+## Lidar Filtering
+
+One way we prevented sensor errors from affecting our robot's performance was by using a ROS 2 pre-made LiDAR filter node. The filter removes unrealistic measurements, such as readings farther away than the maximum side length of our 3-meter field or readings that are impossibly close. This prevents invalid sensor data from being passed to our localization and navigation systems, making our robot's movement more reliable and consistent.
+
+# Odometry Tuning 
+
+TODO (Sagnik)
+
+# Contents
+
+- Because we use ROS 2, having a `src` folder would prevent it from being used properly. For this reason, we created a folder for documentation containing all of the required content.
+- `t-photos` contains two photos of the team: an official team photo and a funny photo with all team members.
+- `v-photos` contains six photos of the vehicle from every side, as well as from the top and bottom.
+- `video` contains the `video.md` file with a link to a video that includes a driving demonstration.
+- `schemes` contains one or more schematic diagrams in JPEG, PNG, or PDF format of the electromechanical components. These diagrams illustrate all of the electronic components and motors used in the vehicle and how they are connected to each other.
+- `models` contains the files for models used by 3D printers, laser-cutting machines, and CNC machines to produce the vehicle's components. If there is nothing to add to this folder, the directory can be removed.
+- `other` contains additional files that can be used to understand how to prepare the vehicle for the competition. This may include documentation on how to connect to an SBC/SBM and upload files, datasets, hardware specifications, communication protocol descriptions, and other relevant information.
