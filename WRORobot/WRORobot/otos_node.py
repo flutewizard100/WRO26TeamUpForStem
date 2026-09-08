@@ -45,6 +45,20 @@ class OtosOdometryNode(Node):
             self.get_parameter('publish_tf').value
         )
 
+        self.declare_parameter('pose_xy_std',   0.02)
+        self.declare_parameter('pose_yaw_std',  0.02)
+        self.declare_parameter('twist_xy_std',  0.05)
+        self.declare_parameter('twist_yaw_std', 0.05)
+        self.declare_parameter('accel_std',     0.10)
+        self.declare_parameter('gyro_std',      0.02)
+
+        self._pose_xy_var   = float(self.get_parameter('pose_xy_std').value)   ** 2
+        self._pose_yaw_var  = float(self.get_parameter('pose_yaw_std').value)  ** 2
+        self._twist_xy_var  = float(self.get_parameter('twist_xy_std').value)  ** 2
+        self._twist_yaw_var = float(self.get_parameter('twist_yaw_std').value) ** 2
+        self._accel_var     = float(self.get_parameter('accel_std').value)     ** 2
+        self._gyro_var      = float(self.get_parameter('gyro_std').value)      ** 2
+
         # --------------------------------------------------------------
         # ROS publishers
         # --------------------------------------------------------------

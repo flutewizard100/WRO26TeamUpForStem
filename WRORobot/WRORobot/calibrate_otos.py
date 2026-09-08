@@ -47,15 +47,15 @@ IMU_FIELDS = {
 # --- Live capture ----------------------------------------------------------
 
 def _collect_live(duration_s):
-    """Subscribe to /odom + /imu/data for `duration_s`; return {topic: [msgs]}."""
+    """Subscribe to /otos_raw + /imu/data for `duration_s`; return {topic: [msgs]}."""
     rclpy.init()
     node = Node('calibrate_otos_live')
 
-    samples = {'/odom': [], '/imu/data': []}
-    node.create_subscription(Odometry, '/odom',      samples['/odom'].append,     50)
+    samples = {'/otos_raw': [], '/imu/data': []}
+    node.create_subscription(Odometry, '/otos_raw',      samples['/otos_raw'].append,     50)
     node.create_subscription(Imu,      '/imu/data',  samples['/imu/data'].append, 50)
 
-    print(f'Listening on /odom and /imu/data for {duration_s:.1f} s ...')
+    print(f'Listening on /otos_raw and /imu/data for {duration_s:.1f} s ...')
     end = time.monotonic() + duration_s
     try:
         while time.monotonic() < end and rclpy.ok():
@@ -64,13 +64,13 @@ def _collect_live(duration_s):
         node.destroy_node()
         rclpy.shutdown()
 
-    n_odom = len(samples['/odom'])
+    n_odom = len(samples['/otos_raw'])
     n_imu  = len(samples['/imu/data'])
-    print(f'Captured {n_odom} /odom + {n_imu} /imu/data messages.')
+    print(f'Captured {n_odom} /otos_raw + {n_imu} /imu/data messages.')
     if n_odom == 0:
         print(
-            'No /odom received. Is hardware.launch.py running? '
-            'Is otos_node up (check `ros2 topic hz /odom`)?',
+            'No /otos_raw received. Is hardware.launch.py running? '
+            'Is otos_node up (check `ros2 topic hz /otos_raw`)?',
             file=sys.stderr,
         )
     return samples
@@ -104,12 +104,12 @@ def analyze(samples, steady_state):
 
     stds = {}
 
-    print(f"{'field':<12} {'n':>6} {'mean':>+12} {'std':>12}")
+    print(f"{'field':<12} {'n':>6} {'mean':>12} {'std':>12}")
     print('-' * 44)
 
-    if '/odom' in samples and samples['/odom']:
+    if '/otos_raw' in samples and samples['/otos_raw']:
         for name, extract in ODOM_FIELDS.items():
-            raw = [extract(m) for m in samples['/odom']]
+            raw = [extract(m) for m in samples['/otos_raw']]
             trimmed = _trim(raw, trim_fraction)
             m = _mean(trimmed)
             s = _std(trimmed)
@@ -169,7 +169,7 @@ def main(argv=None):
    
     samples = _collect_live(15)
     if not samples or not any(samples.values()):
-        print('No /odom or /imu/data messages captured.', file=sys.stderr)
+        print('No /otos_raw or /imu/data messages captured.', file=sys.stderr)
         return 1
 
     stds = analyze(samples, True)
