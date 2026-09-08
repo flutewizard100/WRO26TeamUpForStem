@@ -133,7 +133,7 @@ def generate_launch_description():
         Node(
             package='WRORobot',
             executable='otos_node',
-            name='otos_odometry_node',
+            name='otos_node',
             output='screen',
             parameters=[{
                 'publish_tf': False,  # EKF owns odom->base_link now

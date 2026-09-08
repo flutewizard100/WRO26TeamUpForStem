@@ -172,7 +172,7 @@ def main(argv=None):
         print('No /odom or /imu/data messages captured.', file=sys.stderr)
         return 1
 
-    stds = analyze(samples, true)
+    stds = analyze(samples, True)
     print_recommendation(stds)
     return 0
 

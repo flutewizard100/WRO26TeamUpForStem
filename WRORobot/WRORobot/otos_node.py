@@ -1,287 +1,297 @@
-"""OTOS covariance calibration helper.
+import rclpy
+from rclpy.node import Node
 
-Reads a rosbag2 recording of /odom (and optionally /imu/data), computes the
-sample standard deviation of the fields fed into the EKF, and prints the
-recommended values for the six `_std` parameters on the otos_node.
+from nav_msgs.msg import Odometry
+from sensor_msgs.msg import Imu
+from geometry_msgs.msg import TransformStamped
 
-Usage:
-    # LIVE (fastest — no bag round-trip). With hardware.launch.py running:
-    ros2 run WRORobot calibrate_otos --live 10                 # static
-    ros2 run WRORobot calibrate_otos --live 10 --steady-state  # driving
-
-    # BAG (if you'd rather record once and analyze later):
-    #   ros2 bag record -o static   /odom /imu/data -d 10
-    #   ros2 bag record -o straight /odom /imu/data -d 15   # drive straight
-    #   ros2 bag record -o rotate   /odom /imu/data -d 15   # rotate in place
-    ros2 run WRORobot calibrate_otos static
-    ros2 run WRORobot calibrate_otos straight --steady-state
-    ros2 run WRORobot calibrate_otos rotate   --steady-state
-
-The --steady-state flag trims the first and last 10% of samples so
-acceleration/deceleration transients don't inflate the noise estimate.
-Use it for dynamic captures (straight, rotate); leave off for static.
-
-Output is a block of YAML you can paste under `parameters=` in
-WRORobot/launch/hardware.launch.py.
-"""
-
-import argparse
+import tf2_ros
 import math
-import statistics
-import sys
-import time
-from pathlib import Path
 
-try:
-    import rclpy
-    from rclpy.node import Node
-    from rclpy.serialization import deserialize_message
-    from rosidl_runtime_py.utilities import get_message
-    import rosbag2_py
-    from nav_msgs.msg import Odometry
-    from sensor_msgs.msg import Imu
-except ImportError as exc:
-    print(
-        "This helper requires rclpy / rosbag2_py — run it inside a "
-        "sourced ROS 2 environment.\n"
-        f"Import error: {exc}",
-        file=sys.stderr,
-    )
-    sys.exit(2)
+import qwiic_otos
+from qwiic_i2c.linux_i2c import LinuxI2C
 
 
-# --- Field extractors ------------------------------------------------------
+class OtosI2C(LinuxI2C):
+    """
+    OTOS-specific I2C driver.
 
-def _yaw_from_quaternion(q):
-    """Yaw (Z rotation) from a geometry_msgs/Quaternion."""
-    return math.atan2(
-        2.0 * (q.w * q.z + q.x * q.y),
-        1.0 - 2.0 * (q.y * q.y + q.z * q.z),
-    )
+    qwiic_i2c's normal Linux driver uses SMBus Quick Write for
+    isDeviceConnected(), which does not work correctly with this
+    hardware/interface. We instead verify the OTOS product ID directly.
+    """
 
+    def isDeviceConnected(self, devAddress):
+        try:
+            product_id = self.readByte(devAddress, 0x00)
+            return product_id == 0x5F
+        except Exception:
+            return False
 
-ODOM_FIELDS = {
-    'pose.x':      lambda m: m.pose.pose.position.x,
-    'pose.y':      lambda m: m.pose.pose.position.y,
-    'pose.yaw':    lambda m: _yaw_from_quaternion(m.pose.pose.orientation),
-    'twist.vx':    lambda m: m.twist.twist.linear.x,
-    'twist.vy':    lambda m: m.twist.twist.linear.y,
-    'twist.vyaw':  lambda m: m.twist.twist.angular.z,
-}
+    def is_device_connected(self, devAddress):
+        return self.isDeviceConnected(devAddress)
 
-IMU_FIELDS = {
-    'imu.ax':   lambda m: m.linear_acceleration.x,
-    'imu.ay':   lambda m: m.linear_acceleration.y,
-    'imu.wz':   lambda m: m.angular_velocity.z,
-}
+    def ping(self, devAddress):
+        return self.isDeviceConnected(devAddress)
 
 
-# --- Bag reading -----------------------------------------------------------
+class OtosOdometryNode(Node):
 
-def _open_reader(bag_dir):
-    storage_options = rosbag2_py.StorageOptions(
-        uri=str(bag_dir),
-        storage_id='sqlite3',
-    )
-    converter_options = rosbag2_py.ConverterOptions(
-        input_serialization_format='cdr',
-        output_serialization_format='cdr',
-    )
-    reader = rosbag2_py.SequentialReader()
-    reader.open(storage_options, converter_options)
-    return reader
+    def __init__(self):
+        super().__init__('otos_odometry_node')
 
-
-def _collect_samples(bag_dir, wanted_topics):
-    """Return {topic: [msg, msg, ...]} for every message on wanted_topics."""
-    reader = _open_reader(bag_dir)
-    type_by_topic = {
-        info.name: info.type for info in reader.get_all_topics_and_types()
-    }
-
-    missing = [t for t in wanted_topics if t not in type_by_topic]
-    if missing:
-        print(
-            f"Bag {bag_dir} does not contain topic(s): {', '.join(missing)}. "
-            f"Present topics: {sorted(type_by_topic)}",
-            file=sys.stderr,
+        self.declare_parameter('publish_tf', False)
+        self._publish_tf = bool(
+            self.get_parameter('publish_tf').value
         )
 
-    samples = {t: [] for t in wanted_topics if t in type_by_topic}
-    msg_cls = {
-        t: get_message(type_by_topic[t]) for t in samples
-    }
+        # --------------------------------------------------------------
+        # ROS publishers
+        # --------------------------------------------------------------
 
-    while reader.has_next():
-        topic, raw, _t = reader.read_next()
-        if topic in samples:
-            samples[topic].append(deserialize_message(raw, msg_cls[topic]))
+        self.odom_pub = self.create_publisher(
+            Odometry,
+            'otos_raw',
+            10
+        )
 
-    return samples
+        self.imu_pub = self.create_publisher(
+            Imu,
+            'imu/data',
+            10
+        )
+
+        self.tf_broadcaster = (
+            tf2_ros.TransformBroadcaster(self)
+            if self._publish_tf
+            else None
+        )
+
+        # --------------------------------------------------------------
+        # Initialize OTOS
+        # --------------------------------------------------------------
+
+        self.get_logger().info(
+            "Initializing SparkFun OTOS PAA5160E1..."
+        )
+
+        i2c = OtosI2C(iBus=7)
+
+        self.sensor = qwiic_otos.QwiicOTOS(
+            address=0x17,
+            i2c_driver=i2c
+        )
+
+        if not self.sensor.is_connected():
+            self.get_logger().error(
+                "PAA5160E1 Sensor not detected on I2C bus! "
+                "Check Qwiic connections."
+            )
+            raise RuntimeError("OTOS not connected")
+
+        if not self.sensor.begin():
+            self.get_logger().error(
+                "OTOS begin() failed."
+            )
+            raise RuntimeError("OTOS initialization failed")
+
+        # Use SI units.
+        self.sensor.setLinearUnit(
+            qwiic_otos.QwiicOTOS.kLinearUnitMeters
+        )
+
+        self.sensor.setAngularScalar(0.99995448187)
+        self.sensor.setLinearScalar(0.99554497057)
+
+        self.sensor.setAngularUnit(
+            qwiic_otos.QwiicOTOS.kAngularUnitRadians
+        )
+
+        # --------------------------------------------------------------
+        # Calibrate IMU
+        # --------------------------------------------------------------
+
+        self.get_logger().info(
+            "Calibrating IMU... Keep the robot still."
+        )
+
+        if not self.sensor.calibrateImu():
+            self.get_logger().error(
+                "OTOS IMU calibration failed."
+            )
+
+        self.sensor.resetTracking()
+
+        # --------------------------------------------------------------
+        # Main loop: 50 Hz
+        # --------------------------------------------------------------
+
+        self.timer = self.create_timer(
+            0.02,
+            self.update_callback
+        )
+
+        self.get_logger().info(
+            "OTOS Python Node successfully started."
+        )
+
+    def update_callback(self):
+
+        try:
+            # Read position, velocity and acceleration in one I2C burst.
+            #
+            # These are returned in SI units:
+            #   position:     m, m, rad
+            #   velocity:     m/s, m/s, rad/s
+            #   acceleration: m/s^2, m/s^2, rad/s^2
+            pos, vel, acc = self.sensor.getPosVelAcc()
+
+        except Exception as e:
+            self.get_logger().error(
+                f"Failed to read OTOS: {e}"
+            )
+            return
+
+        current_time = self.get_clock().now().to_msg()
+
+        # --------------------------------------------------------------
+        # Convert OTOS heading to ROS quaternion
+        # --------------------------------------------------------------
+
+        q = self.euler_to_quaternion(
+            0.0,
+            0.0,
+            pos.h
+        )
+
+        # --------------------------------------------------------------
+        # 1. Publish Odometry
+        # --------------------------------------------------------------
+
+        odom = Odometry()
+
+        odom.header.stamp = current_time
+        odom.header.frame_id = "odom"
+        odom.child_frame_id = "base_link"
+
+        # Position
+        odom.pose.pose.position.x = pos.x
+        odom.pose.pose.position.y = pos.y
+        odom.pose.pose.position.z = 0.0
+
+        # Orientation
+        odom.pose.pose.orientation.x = q[0]
+        odom.pose.pose.orientation.y = q[1]
+        odom.pose.pose.orientation.z = q[2]
+        odom.pose.pose.orientation.w = q[3]
+
+        # Velocity
+        odom.twist.twist.linear.x = vel.x
+        odom.twist.twist.linear.y = vel.y
+        odom.twist.twist.linear.z = 0.0
+
+        odom.twist.twist.angular.x = 0.0
+        odom.twist.twist.angular.y = 0.0
+        odom.twist.twist.angular.z = vel.h
+
+        self.odom_pub.publish(odom)
+
+        # --------------------------------------------------------------
+        # 2. Publish IMU
+        # --------------------------------------------------------------
+
+        imu = Imu()
+
+        imu.header.stamp = current_time
+        imu.header.frame_id = "base_link"
+
+        # OTOS acceleration.
+        #
+        # In the OTOS Pose2D representation:
+        #   acc.x = acceleration along X
+        #   acc.y = acceleration along Y
+        #
+        # OTOS does not expose a separate raw gyro API in this
+        # qwiic_otos version. Its velocity heading (vel.h) is the
+        # angular velocity estimate.
+        imu.linear_acceleration.x = acc.x
+        imu.linear_acceleration.y = acc.y
+        imu.linear_acceleration.z = 0.0
+
+        imu.angular_velocity.x = 0.0
+        imu.angular_velocity.y = 0.0
+        imu.angular_velocity.z = vel.h
+
+        # We are not publishing an independent IMU orientation
+        # measurement here. Let the EKF obtain orientation from
+        # the OTOS odometry.
+        imu.orientation_covariance[0] = -1.0
+
+        self.imu_pub.publish(imu)
+
+        # --------------------------------------------------------------
+        # 3. Optional direct TF
+        # --------------------------------------------------------------
+
+        if self.tf_broadcaster is not None:
+
+            t = TransformStamped()
+
+            t.header.stamp = current_time
+            t.header.frame_id = "odom"
+            t.child_frame_id = "base_link"
+
+            t.transform.translation.x = pos.x
+            t.transform.translation.y = pos.y
+            t.transform.translation.z = 0.0
+
+            t.transform.rotation.x = q[0]
+            t.transform.rotation.y = q[1]
+            t.transform.rotation.z = q[2]
+            t.transform.rotation.w = q[3]
+
+            self.tf_broadcaster.sendTransform(t)
+
+    @staticmethod
+    def euler_to_quaternion(roll, pitch, yaw):
+
+        cy = math.cos(yaw * 0.5)
+        sy = math.sin(yaw * 0.5)
+
+        cp = math.cos(pitch * 0.5)
+        sp = math.sin(pitch * 0.5)
+
+        cr = math.cos(roll * 0.5)
+        sr = math.sin(roll * 0.5)
+
+        q = [0.0] * 4
+
+        q[0] = sr * cp * cy - cr * sp * sy
+        q[1] = cr * sp * cy + sr * cp * sy
+        q[2] = cr * cp * sy - sr * sp * cy
+        q[3] = cr * cp * cy + sr * sp * sy
+
+        return q
 
 
-# --- Live capture ----------------------------------------------------------
+def main(args=None):
 
-def _collect_live(duration_s):
-    """Subscribe to /odom + /imu/data for `duration_s`; return {topic: [msgs]}."""
-    rclpy.init()
-    node = Node('calibrate_otos_live')
+    rclpy.init(args=args)
 
-    samples = {'/odom': [], '/imu/data': []}
-    node.create_subscription(Odometry, '/odom',      samples['/odom'].append,     50)
-    node.create_subscription(Imu,      '/imu/data',  samples['/imu/data'].append, 50)
+    node = OtosOdometryNode()
 
-    print(f'Listening on /odom and /imu/data for {duration_s:.1f} s ...')
-    end = time.monotonic() + duration_s
     try:
-        while time.monotonic() < end and rclpy.ok():
-            rclpy.spin_once(node, timeout_sec=0.05)
+        rclpy.spin(node)
+
+    except KeyboardInterrupt:
+        pass
+
     finally:
         node.destroy_node()
-        rclpy.shutdown()
 
-    n_odom = len(samples['/odom'])
-    n_imu  = len(samples['/imu/data'])
-    print(f'Captured {n_odom} /odom + {n_imu} /imu/data messages.')
-    if n_odom == 0:
-        print(
-            'No /odom received. Is hardware.launch.py running? '
-            'Is otos_node up (check `ros2 topic hz /odom`)?',
-            file=sys.stderr,
-        )
-    return samples
-
-
-# --- Stats -----------------------------------------------------------------
-
-def _trim(values, fraction):
-    if fraction <= 0 or len(values) < 20:
-        return values
-    n = len(values)
-    cut = max(1, int(n * fraction))
-    return values[cut:-cut]
-
-
-def _std(values):
-    if len(values) < 2:
-        return float('nan')
-    return statistics.stdev(values)
-
-
-def _mean(values):
-    if not values:
-        return float('nan')
-    return statistics.fmean(values)
-
-
-def analyze(samples, steady_state):
-    """Print per-field mean/std and return a dict of stds."""
-    trim_fraction = 0.10 if steady_state else 0.0
-
-    stds = {}
-
-    print(f"{'field':<12} {'n':>6} {'mean':>+12} {'std':>12}")
-    print('-' * 44)
-
-    if '/odom' in samples and samples['/odom']:
-        for name, extract in ODOM_FIELDS.items():
-            raw = [extract(m) for m in samples['/odom']]
-            trimmed = _trim(raw, trim_fraction)
-            m = _mean(trimmed)
-            s = _std(trimmed)
-            stds[name] = s
-            print(f"{name:<12} {len(trimmed):>6} {m:>+12.4f} {s:>12.4f}")
-
-    if '/imu/data' in samples and samples['/imu/data']:
-        for name, extract in IMU_FIELDS.items():
-            raw = [extract(m) for m in samples['/imu/data']]
-            trimmed = _trim(raw, trim_fraction)
-            m = _mean(trimmed)
-            s = _std(trimmed)
-            stds[name] = s
-            print(f"{name:<12} {len(trimmed):>6} {m:>+12.4f} {s:>12.4f}")
-
-    return stds
-
-
-def _fmt(x):
-    if x is None or (isinstance(x, float) and math.isnan(x)):
-        return '(no data)'
-    return f'{x:.4f}'
-
-
-def print_recommendation(stds):
-    """Suggest launch-file parameter values from the computed stds."""
-    xy    = max((stds.get('pose.x') or 0.0), (stds.get('pose.y') or 0.0))
-    yaw   = stds.get('pose.yaw')
-    vxy   = max((stds.get('twist.vx') or 0.0), (stds.get('twist.vy') or 0.0))
-    vyaw  = stds.get('twist.vyaw')
-    accel = max((stds.get('imu.ax') or 0.0), (stds.get('imu.ay') or 0.0)) or None
-    gyro  = stds.get('imu.wz')
-
-    print()
-    print('Suggested parameter block for hardware.launch.py')
-    print('-' * 44)
-    print("            parameters=[{")
-    print("                'publish_tf': False,")
-    print(f"                'pose_xy_std':   {_fmt(xy or None)},")
-    print(f"                'pose_yaw_std':  {_fmt(yaw)},")
-    print(f"                'twist_xy_std':  {_fmt(vxy or None)},")
-    print(f"                'twist_yaw_std': {_fmt(vyaw)},")
-    print(f"                'accel_std':     {_fmt(accel)},")
-    print(f"                'gyro_std':      {_fmt(gyro)},")
-    print("            }],")
-    print()
-    print(
-        'Use the LARGER value between static and dynamic bags for each '
-        'parameter. Do not trust any std < 1e-4 — that is below the '
-        "sensor's real precision and likely an artifact."
-    )
-
-
-# --- Main ------------------------------------------------------------------
-
-def main(argv=None):
-    parser = argparse.ArgumentParser(
-        prog='calibrate_otos',
-        description='Compute OTOS covariance parameters from live topics or a rosbag2 recording.',
-    )
-    parser.add_argument(
-        'bag', nargs='?',
-        help='Path to a rosbag2 directory (e.g. ./static/). Omit when using --live.',
-    )
-    parser.add_argument(
-        '--live', type=float, metavar='SECONDS',
-        help='Skip the bag; subscribe to /odom + /imu/data for this many seconds instead.',
-    )
-    parser.add_argument(
-        '--steady-state', action='store_true',
-        help='Trim first/last 10%% of samples. Use for dynamic captures.',
-    )
-    args = parser.parse_args(argv)
-
-    if args.live is not None:
-        if args.live <= 0:
-            print('--live SECONDS must be positive.', file=sys.stderr)
-            return 1
-        samples = _collect_live(args.live)
-    else:
-        if not args.bag:
-            parser.error('provide a bag path, or use --live SECONDS')
-        bag_path = Path(args.bag)
-        if not bag_path.is_dir():
-            print(f'Not a directory: {bag_path}', file=sys.stderr)
-            return 1
-        samples = _collect_samples(bag_path, ['/odom', '/imu/data'])
-
-    if not samples or not any(samples.values()):
-        print('No /odom or /imu/data messages captured.', file=sys.stderr)
-        return 1
-
-    stds = analyze(samples, args.steady_state)
-    print_recommendation(stds)
-    return 0
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == '__main__':
-    sys.exit(main())
+    main()
