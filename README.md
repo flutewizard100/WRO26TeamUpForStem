@@ -55,7 +55,7 @@ We also conected the OTOS sensor to the bottom of the car for odometry readings.
 
 </p>
 
-This was our second version of our base in the begining we attemped to use 3D printing to modle it ourselfs learn more here: [Past Hardware](https://github.com/flutewizard100/WRO26TeamUpForStem/blob/main/Documentation/README.md)
+This was our second version of our base in the begining we attemped to use 3D printing to modle it ourselfs learn more here: [Past Hardware](https://github.com/flutewizard100/WRO26TeamUpForStem/blob/main/Documentation/pastHardware.md)
 
 ## First Layer
 
