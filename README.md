@@ -48,4 +48,5 @@ ESC: HOBBYWING QUICRUN WP 1080 G2 Brushed 2-3s ESC
 
 # Wiring Diagram:
 
-<img width="977" height="482" alt="image" src="https://github.com/user-attachments/assets/437d6507-ed7f-4930-b226-5867d52209d3" />
+<img height="667" alt="image" src="https://github.com/user-attachments/assets/74439585-e6a5-4079-909c-292f2031224b" />
+
