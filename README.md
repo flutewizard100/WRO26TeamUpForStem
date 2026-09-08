@@ -82,6 +82,23 @@ TODO Sagnik add explanation of high level nodes and topics and how it works
 
 One of the ways we helped to speed up the programming process was by working on the obstacle and open-loop navigation code using simulations. For our simulation, we used RViz and Nav2 to help build the scans even without the robot and test our code even if the robot wasn't fully ready. Doing this let us work on the logic and practice using the sensors. Simulation allowed us to see the sensor outputs and use them in our calculations and see what happens in the robot outputs, recreating the nodes so that we can run the exact same file and, in a perfect world, it performs the exact same. However, some sensor outputs are inaccurate, so to account for this, we implemented an EKF to have more accurate readings by combining multiple sensors to fix inaccuracies. 
 
+## Open Loop Logic
+
+For our open loop, we use a state machine with 5 states, each one leading to another:
+
+(Init) Our initial state allows the robot to get set and ensures all the sensors are ready and the topics have information before we begin to use them in our calculations. Once finished, the state is set to Lane Follow.
+
+(Lane Follow) Our lane follow state keeps the robot speed set on cmd_vel to go forward until the sensors detect a corner, which sets the state to Corner, unless the number of corners is 12, meaning that the robot has finished 3 full laps, which makes the state Park.
+
+(Corner) Our corner state keeps the robot turning until the sensors detect that the robot is in between the 2 walls. Once it is, the state is set to Lane Follow.
+
+(Park) Our parking state keeps the robot going forward until it is halfway in the tunnel, where it started, and then changes the state to Stop.
+
+(Stop) Our stop state keeps the robot from moving and does not activate a new state.
+
+<img width="1545" height="793" alt="image" src="https://github.com/user-attachments/assets/0e56dc89-2bd5-4246-ad83-ee905e9cc6f5" />
+
+
 # Camera 
 
 TODO Sagnik & Gregory Write what the camera is trained on and how it was done like 6-8 scentences keep consise
