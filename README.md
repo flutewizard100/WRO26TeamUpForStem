@@ -79,3 +79,9 @@ The Teensy 4.1 node is what we use as the node to control the Motor and Servo. T
 TODO Sagnik add explanation of high level nodes and topics and how it works
 
 # Simulation 
+
+One of the ways we helped to speed up the programming process was by working on the obstacle and open-loop navigation code using simulations. For our simulation, we used RViz and Nav2 to help build the scans even without the robot and test our code even if the robot wasn't fully ready. Doing this let us work on the logic and practice using the sensors.
+
+# Camera 
+
+TODO Sagnik & Gregory Write what the camera is trained on and how it was done like 6-8 scentences keep consise
