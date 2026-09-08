@@ -51,8 +51,9 @@ We also conected the OTOS sensor to the bottom of the car for odometry readings.
 
 ### Pictures Of The Base:
 <p>
-  <img width="858" height="562" alt="image" src="https://github.com/user-attachments/assets/eeeb84d8-b88b-4afd-9ec9-7f5d06e5da54" />
-  
+  <img height="300" alt="image" src="https://github.com/user-attachments/assets/eeeb84d8-b88b-4afd-9ec9-7f5d06e5da54" />
+  <img height="300" alt="image" src="https://github.com/user-attachments/assets/8e530a42-62d5-4974-b7af-0bd89ea8e1bd" />
+
 </p>
 
 This was our second version of our base in the begining we attemped to use 3D printing to modle it ourselfs learn more here: [Past Hardware](https://github.com/flutewizard100/WRO26TeamUpForStem/blob/main/Documentation/README.md)
@@ -61,12 +62,17 @@ This was our second version of our base in the begining we attemped to use 3D pr
 
 This layer consists of a laser-cut, wooden base plate that holds mounts for electronic components. Mounts for the battery, the on/off switch,and the Power Distribution Board are 3D printed using PLA and screwed into the base plate. The Lidar is simply mounted by srewing it in directly to the wooden plate. It also supports four metal GoBilda axles that connect the top plate. We choose wood for the material because it is easy and fast to laser cut, and it is less expensive so we have lots of spare material in case the top and middle plates break.
 
+<img height="300" alt="image" src="https://github.com/user-attachments/assets/501cc652-26cf-402a-8151-373d62e86c28" />
+
+
 ## Second Layer
 
 The top plate is much like the middle plate; except for the shape and the electronics it holds. It is also made of wood and is laser-cut and attaches 3 diffrent components:
 -   The Jetson Nano is directy screwed into the board suported by standoffs.
 -   And we connected the teensy perpendicular to the wooden plate.
 -   And the 3D printed camera mount is screwed into other holes on the Nano board.
+
+<img height="300" alt="image" src="https://github.com/user-attachments/assets/875175c1-6603-42d4-b742-25f26a33dfd8" />
 
 
 # Wiring Diagram:
