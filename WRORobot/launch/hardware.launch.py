@@ -69,6 +69,16 @@ def generate_launch_description():
         )
     )
 
+    slam_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(
+                get_package_share_directory('wro_nav2'),
+                'launch',
+                'slam.launch.py'
+            )
+        )
+    )
+
     rsp = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
@@ -83,7 +93,7 @@ def generate_launch_description():
     return LaunchDescription([
         lidar_launch,
         rsp,
-
+        slam_launch,
         # Laser scan filter chain — drops self-hits (< 10 cm) and max-range
         # phantoms (> 4 m), plus a speckle filter for isolated noise dots.
         # Reads raw driver output on /scan_raw, publishes cleaned scan on
@@ -93,7 +103,7 @@ def generate_launch_description():
             executable='scan_to_scan_filter_chain',
             name='scan_filter',
             output='screen',
-            parameters=[_config_path('scan_fillter.yaml')],
+            parameters=[_config_path('scan_filter.yaml')],
             remappings=[
                 ('scan', '/scan_raw'),
                 ('scan_filtered', '/scan'),

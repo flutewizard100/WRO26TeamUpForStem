@@ -22,7 +22,7 @@ def generate_launch_description():
     default_params = os.path.join(pkg_wro_nav2, 'params', 'nav2_params.yaml')
     default_slam_params = os.path.join(
         pkg_wro_robot, 'config', 'slam_params.yaml')
-
+    print(default_slam_params)
     use_sim_time = LaunchConfiguration('use_sim_time')
     autostart = LaunchConfiguration('autostart')
     params_file = LaunchConfiguration('params_file')
@@ -36,7 +36,7 @@ def generate_launch_description():
         'params_file', default_value=default_params)
     declare_slam_params = DeclareLaunchArgument(
         'slam_params_file', default_value=default_slam_params)
-
+    print(declare_slam_params)
     slam_toolbox = Node(
         package='slam_toolbox',
         executable='async_slam_toolbox_node',

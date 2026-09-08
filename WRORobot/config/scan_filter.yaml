@@ -18,3 +18,5 @@ scan_to_scan_filter_chain:
         max_range: 4.0
         max_range_difference: 0.5       # drop points > 0.5 m off from neighbors
         filter_window: 2                # 2-point window
+
+

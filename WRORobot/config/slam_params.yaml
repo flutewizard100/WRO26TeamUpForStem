@@ -1,4 +1,4 @@
-/slam_toolbox:
+slam_toolbox:
   ros__parameters:
     # ROS Parameters
     odom_frame: odom
@@ -12,9 +12,3 @@
     fine_search_angle_offset: 0.00349
     coarse_search_angle_offset: 0.349
     coarse_linear_search_factor: 0.5
-
-    # QoS Override
-    qos_overrides:
-      /scan:
-        subscription:
-          reliability: reliable
