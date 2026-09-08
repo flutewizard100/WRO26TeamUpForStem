@@ -208,6 +208,22 @@ class OtosOdometryNode(Node):
         odom.twist.twist.angular.y = 0.0
         odom.twist.twist.angular.z = vel.h
 
+        #Covariance
+
+        odom.pose.covariance[0]  = self._pose_xy_var
+        odom.pose.covariance[7]  = self._pose_xy_var
+        odom.pose.covariance[14] = 1e6
+        odom.pose.covariance[21] = 1e6
+        odom.pose.covariance[28] = 1e6
+        odom.pose.covariance[35] = self._pose_yaw_var
+
+        odom.twist.covariance[0]  = self._twist_xy_var
+        odom.twist.covariance[7]  = self._twist_xy_var
+        odom.twist.covariance[14] = 1e6
+        odom.twist.covariance[21] = 1e6
+        odom.twist.covariance[28] = 1e6
+        odom.twist.covariance[35] = self._twist_yaw_var
+
         self.odom_pub.publish(odom)
 
         # --------------------------------------------------------------
