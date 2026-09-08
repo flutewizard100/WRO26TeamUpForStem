@@ -61,7 +61,10 @@ This was our second version of our base in the begining we attemped to use 3D pr
 
 This layer consists of a laser-cut, wooden base plate that holds mounts for electronic components. Mounts for the battery, the on/off switch,and the Power Distribution Board are 3D printed using PLA and screwed into the base plate. The Lidar is simply mounted by srewing it in directly to the wooden plate. It also supports four metal GoBilda axles that connect the top plate. We choose wood for the material because it is easy and fast to laser cut, and it is less expensive so we have lots of spare material in case the top and middle plates break.
 
-<img height="300" alt="image" src="https://github.com/user-attachments/assets/501cc652-26cf-402a-8151-373d62e86c28" />
+<p>
+  <img height="300" alt="image" src="https://github.com/user-attachments/assets/501cc652-26cf-402a-8151-373d62e86c28" />
+  <img height="300" alt="image" src="https://github.com/user-attachments/assets/dd16e0fb-0543-4a81-9cc9-2500268efd0e" />
+</p>
 
 
 ## Second Layer
@@ -70,8 +73,10 @@ The top plate is much like the middle plate; except for the shape and the electr
 -   The Jetson Nano is directy screwed into the board suported by standoffs.
 -   And we connected the teensy perpendicular to the wooden plate.
 -   And the 3D printed camera mount is screwed into other holes on the Nano board.
-
-<img height="300" alt="image" src="https://github.com/user-attachments/assets/875175c1-6603-42d4-b742-25f26a33dfd8" />
+ <p>
+  <img height="300" alt="image" src="https://github.com/user-attachments/assets/875175c1-6603-42d4-b742-25f26a33dfd8" />
+  <img height="300" alt="image" src="https://github.com/user-attachments/assets/a9603422-7a2b-4f16-9d70-266706415b59" />
+ </p>
 
 
 # Wiring Diagram:
