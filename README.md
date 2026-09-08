@@ -49,7 +49,6 @@ To modify the drivetrain we relpaced three major components:
 
 We also conected the OTOS sensor to the bottom of the car for odometry readings. 
 
-### Pictures Of The Base:
 <p>
   <img height="300" alt="image" src="https://github.com/user-attachments/assets/eeeb84d8-b88b-4afd-9ec9-7f5d06e5da54" />
   <img height="300" alt="image" src="https://github.com/user-attachments/assets/8e530a42-62d5-4974-b7af-0bd89ea8e1bd" />
