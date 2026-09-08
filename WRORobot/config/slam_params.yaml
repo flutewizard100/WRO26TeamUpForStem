@@ -12,3 +12,8 @@ slam_toolbox:
     fine_search_angle_offset: 0.00349
     coarse_search_angle_offset: 0.349
     coarse_linear_search_factor: 0.5
+
+    qos_overrides:
+      /scan:
+        subscription:
+          reliability: best_effort

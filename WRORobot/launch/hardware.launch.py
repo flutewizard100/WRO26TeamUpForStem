@@ -3,11 +3,6 @@ behavior, no SLAM.
 
 Starts:
   - lidar (ldlidar_ros2)
-  - IMU driver (lsm9ds1_handler) — /imu/data_raw
-  - imu_filter_madgwick — /imu/data_raw + accel/gyro -> /imu/data (no mag,
-    LSM9DS1 handler doesn't publish MagneticField; task #22 is the future
-    fix if absolute yaw fallback becomes critical)
-  - laser_scan_matcher — /scan -> /odometry/laser (scan-to-scan odom)
   - otos_node — publishes /odom (no TF; EKF owns odom->base_link now)
   - ekf_filter_node — fuses /odom (OTOS), /odometry/laser (LiDAR),
     /imu/data (IMU) into filtered odom->base_link. Graceful degradation:
