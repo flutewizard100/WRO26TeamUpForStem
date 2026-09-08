@@ -80,8 +80,12 @@ TODO Sagnik add explanation of high level nodes and topics and how it works
 
 # Simulation 
 
-One of the ways we helped to speed up the programming process was by working on the obstacle and open-loop navigation code using simulations. For our simulation, we used RViz and Nav2 to help build the scans even without the robot and test our code even if the robot wasn't fully ready. Doing this let us work on the logic and practice using the sensors.
+One of the ways we helped to speed up the programming process was by working on the obstacle and open-loop navigation code using simulations. For our simulation, we used RViz and Nav2 to help build the scans even without the robot and test our code even if the robot wasn't fully ready. Doing this let us work on the logic and practice using the sensors. Simulation allowed us to see the sensor outputs and use them in our calculations and see what happens in the robot outputs, recreating the nodes so that we can run the exact same file and, in a perfect world, it performs the exact same. However, some sensor outputs are inaccurate, so to account for this, we implemented an EKF to have more accurate readings by combining multiple sensors to fix inaccuracies. 
 
 # Camera 
 
 TODO Sagnik & Gregory Write what the camera is trained on and how it was done like 6-8 scentences keep consise
+
+# Lidar
+
+The autonomous vehicle uses the LiDAR which shoots out laser scans in all 360 degrees in order to make a map of the field. LiDAR We chose to use the liDAR model DTOF LD19 because of it's compact size which allowed it to be stored in the robot without affecting it's weight too heavily. Additionally, the DTOF LiDAR measures the exact travel time of a single laser pulse that emits at a frequency of 4500 hz, hence the name DTOF, which stands for Direct Time-Of-Flight. Unlike other LiDAR models, which use a camera sensor to measure the angle of the laser dot to calculate distances, the accuracy of DTOF is not as constrained, having a range of 12 meters, because it measures the time of flight rather than using a built-in camera to track the distance.
