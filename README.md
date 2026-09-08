@@ -1,12 +1,3 @@
-# Contents:
-### Team-photos
-### Vehicle-photos
-### Video
-### Schemes
-### Src
-### Models
-### Other
-  
 # Team Pictures:
 TODO we need to take them today
 
@@ -48,5 +39,11 @@ ESC: HOBBYWING QUICRUN WP 1080 G2 Brushed 2-3s ESC
 
 # Wiring Diagram:
 
-<img height="667" alt="image" src="https://github.com/user-attachments/assets/74439585-e6a5-4079-909c-292f2031224b" />
+<img width="1545" height="667" alt="image" src="https://github.com/user-attachments/assets/ea402b43-c923-4fc1-b1a3-8da9963ca78f" />
 
+
+# Code Structure:
+
+For our code we use ros2 a 
+
+# Contents
