@@ -36,7 +36,7 @@ Addtional Computer: Tieensy 4.1
 
 ESC: HOBBYWING QUICRUN WP 1080 G2 Brushed 2-3s ESC 
 
-# Assebmly and Manufacturing:
+# Assembly and Manufacturing:
 
 ## Base
 
@@ -47,7 +47,15 @@ To modify the drivetrain we relpaced three major components:
  2.  For replacing the servo we simply got one with the same dimensions and replaced it with no need for any new mounts
  3.  To be able to mount new compontents we replaced the blue plate with a new wooden laser cut mount
 
-We also conected the OTOS sensor to the bottom of the car for odometry readings.
+We also conected the OTOS sensor to the bottom of the car for odometry readings. 
+
+### Pictures Of The Base:
+<p>
+  <img width="858" height="562" alt="image" src="https://github.com/user-attachments/assets/eeeb84d8-b88b-4afd-9ec9-7f5d06e5da54" />
+  
+</p>
+
+This was our second version of our base in the begining we attemped to use 3D printing to modle it ourselfs learn more here: [Past Hardware](https://github.com/flutewizard100/WRO26TeamUpForStem/blob/main/Documentation/README.md)
 
 ## First Layer
 
