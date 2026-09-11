@@ -36,6 +36,7 @@ We replaced the motor with an ARRMA MEGA 380 brushed motor and added a new mount
 
 <img height="300" alt="Version 2.2 updated components and chassis" src="https://github.com/user-attachments/assets/8e530a42-62d5-4974-b7af-0bd89ea8e1bd" />
 
+
 ## Choosing Components
 
 We chose the ARRMA MEGA 380 brushed motor because the MIT course recommended it and we already had it. The Traxxas 2265 metal-gear servo was recommended by a local RC car expert, and we already had that available too.
@@ -55,3 +56,20 @@ At first, we tried to keep our 3D-printed structure and fix the layout instead o
 We then switched to a premade base instead of continuing with the printed one. We still had to make changes to it, including removing the casing and original structural plate and adding a mount for the replacement motor.
 
 The main problem with our printed versions was not just fitting all the parts. We also needed the LiDAR to sit where it could scan the walls effectively.
+
+# Power and Sensor Architecture 
+
+## Power Distribution
+
+Power goes from the battery through a fuse and switch to the PDB, which splits it into three branches:
+
+```text
+Battery → Fuse → Switch → PDB
+                          ├── ESC → Motor
+                          ├── Step-Down Converter → Servo
+                          └── Orin
+```
+
+The ESC controls the motor, the step-down converter lowers the voltage for the servo, and the last branch powers the Orin.
+
+Only power connections are shown, not signal wires.
