@@ -100,3 +100,26 @@ Only power connections are shown, not signal wires.
 
 ### LiDAR
 
+Before choosing our current LiDAR, we considered two other models.
+
+#### RPLIDAR A1
+
+We first considered the RPLIDAR A1 because we already owned it and had heard it was reliable.
+
+<img height="300" alt="RPLIDAR A1" src="https://github.com/user-attachments/assets/75b91a00-f88c-422a-8899-ab1ab9f1e55a" />
+
+We decided against it because it was too large, and its external motor took up extra space.
+
+#### RPLIDAR A3
+
+We then switched to the RPLIDAR A3 because we expected it to be more reliable. Its internal motor also gave it a more compact shape that was easier to mount.
+
+<img height="300" alt="RPLIDAR A3" src="https://github.com/user-attachments/assets/5e8c832e-ab1f-47f7-9cb7-f78bb5fc027f" />
+
+However, it was still too large to fit on our robot. It was also heavy and expensive, so we switched to our current LiDAR, the LDRobot LD19.
+
+
+
+
+
+
