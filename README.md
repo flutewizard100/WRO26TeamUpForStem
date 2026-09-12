@@ -153,14 +153,89 @@ A robust competition wiring is to connect the Teensy to the Jetson using a data 
 
 ## Data Wiring
 
-The connecting cables between Jetson Orin and lidar, camera, and Teensy are data cables.
+The connecting cables between Jetson Orin and lidar, camera, and Teensy are also data cables.
 
+The servo control wire is connected to the Teensy, as well as the ESC control wire.
+
+The odometry control wires (SDL and SCL) are connected directly to the first I2C bus on the Jetson.
 
 <img width="1545" alt="image" src="https://github.com/user-attachments/assets/ea402b43-c923-4fc1-b1a3-8da9963ca78f" />
 
+
+## Operating System and Libraries
+
+1. Follow [these instructions](https://ubuntu.com/download/nvidia-jetson#jetson-orin-nano) to install Ubuntu 24.04 on the Jetson Orin.
+2. Follow [these instructions](https://docs.ros.org/en/jazzy/Installation.html) to install the ROS2 Jazzy library.
+3. Follow [these instructions](https://github.com/micro-ros/micro_ros_setup) to install the [micro-ROS] on the Teensy.
+
+## The stucture of the software
+
+The ROS2 system relies on a process called `ros_core` which facilitates the communication between different parts the the robot.
+Each sensor and actuator has its own process, called a node. The nodes representing physical component nodes are connected to other nodes to implement the entire robot behavior.
+
+The nodes communicate through a publisher-subscriber mechanism. Nodes can subscribe to receive messages of a certain type on a topic, whithout know which nodes publishes on that topic. Nodes can also publish on several topics.
+
+To start the entire system of nodes, ROS uses a system of launch files.
+
+Before starting any work session on a terminal, the user must run the following command:
+```
+source /opt/ros2/jazzy/setup.bash
+```
+
+The user must change directory to the `WRO26TeamUpForStem` repository.
+
+To command to compile the code is
+```
+colcon build
+```
+
+Once the build is complete, then the user must run the following command:
+```
+source install/setup.bash
+```
+
+We created a system of launch files to start different parts of the system.
+
+To launch the hardware components we use the command
+```
+ros launch WRORobot harwdare.launch
+```
+A graph of the nodes and topics is available [here](hardwarenodegraph.png)
+
+To launch the control software for the open challenge in simulation use the following commands:
+```
+source /opt/ros/jazzy/setup.bash && source install/setup.bash
+ros2 launch wro_sim sim.launch.py rviz:=true
+ros2 run wro_behavior open_challenge
+```
+A graph of the nodes and topics is available [here]().
+
+To launch the control software for the obstacle challenge in simulation use the following commands:
+```
+source /opt/ros/jazzy/setup.bash && source install/setup.bash
+ros2 launch wro_sim sim.launch.py rviz:=true
+ros2 run wro_behavior obstacle_challenge
+```
+
+When the control code is run in a simulated environment the harware's behavior is simulated, but the navigation and behavior nodes are the one used on the real environment.
+
+To launch the full software stack use:
+```
+source /opt/ros/jazzy/setup.bash && source install/setup.bash
+ros2 launch WRORobot
+```
+
+
 # Contents
 
-- Because we use ROS 2, having a `src` folder would prevent it from being used properly. For this reason, we created a folder for documentation containing all of the required content.
+- our repository is a ROS2 workspace with directories for major software components
+1. `ldlidar_ros2` is the software provided by the vendor for the specific lidar we use.
+2. `lsm9ds1_handler` and `lsmds1_imu_driver` is software for a 9-axis IMU we planned to use as a backup for the 6-axis IMU that comes with the SparkFun sensor.
+3. `slam_toolbox` is a software package that subscribes to the `/odom` and `/scan` and runs a SLAM algorithm and publishes on the topic `map`
+4. `WRORobot` contains the nodes representing the harware components.
+5. `wro_sim` contains the nodes to creat the simulation and environment
+5. `wro_nav2` 
+6. `wro_behavior` programs used to code the simulation
 - `t-photos` contains two photos of the team: an official team photo and a funny photo with all team members.
 - `v-photos` contains six photos of the vehicle from every side, as well as from the top and bottom.
 - `video` contains the `video.md` file with a link to a video that includes a driving demonstration.
