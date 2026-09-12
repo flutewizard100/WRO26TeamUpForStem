@@ -118,6 +118,37 @@ We then switched to the RPLIDAR A3 because we expected it to be more reliable. I
 
 However, it was still too large to fit on our robot. It was also heavy and expensive, so we switched to our current LiDAR, the LDRobot LD19.
 
+## Open Loop Logic
+
+For our open loop, we use a state machine with 5 states, each one leading to another:
+
+(Init) Our initial state allows the robot to get set and ensures all the sensors are ready and the topics have information before we begin to use them in our calculations. Once finished, the state is set to Lane Follow.
+
+(Lane Follow) Our lane follow state keeps the robot speed set on cmd_vel to go forward until the sensors detect a corner, which sets the state to Corner, unless the number of corners is 12, meaning that the robot has finished 3 full laps, which makes the state Park.
+
+(Corner) Our corner state keeps the robot turning until the sensors detect that the robot is in between the 2 walls. Once it is, the state is set to Lane Follow.
+
+(Park) Our parking state keeps the robot going forward until it is halfway in the tunnel, where it started, and then changes the state to Stop.
+
+(Stop) Our stop state keeps the robot from moving and does not activate a new state.
+
+<img width="1545" height="793" alt="image" src="https://github.com/user-attachments/assets/0e56dc89-2bd5-4246-ad83-ee905e9cc6f5" />
+
+### Obstacle Loop Logic
+For our obstacle loop, we use a state machine with 6 states, each one leading to another:
+
+(Init) Our initial state allows the robot to get set and ensures all the sensors are ready and the topics have information before we begin to use them in our calculations. Once finished, the state is set to Lane Follow.
+
+(Lane Follow) Our lane follow state keeps the robot speed set on cmd_vel to go forward until the sensors detect a corner or an obstacle, which sets the state to obstacle or corner depending on detection, unless the number of corners is 12, meaning that the robot has finished 3 full laps, which makes the state Park.
+
+(Corner) Our corner state keeps the robot turning until the sensors detect that the robot is in between the 2 walls. Once it is, the state is set to Lane Follow.
+
+(Obstacle) Our obstacle state keeps the robot turns either left or right of obstacle depending on the color detection of the camera, Once it finishes, the state sets back to Lane Follow.
+
+(Park) Our parking state keeps the robot going forward until it is halfway in the tunnel, where it started, and then changes the state to Stop.
+
+(Stop) Our stop state keeps the robot from moving and does not activate a new state.
+
 
 
 
