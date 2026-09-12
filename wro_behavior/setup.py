@@ -13,6 +13,7 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/launch', glob('launch/*.launch.py')),
+        ('share/' + package_name + '/config', glob('config/*.yaml')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -33,6 +34,8 @@ setup(
             'obstacle_challenge_skeleton = wro_behavior.obstacle_challenge_skeleton:main',
             'sim_limelight_bridge = wro_behavior.sim_limelight_bridge:main',
             'hardware_test = wro_behavior.hardware_test:main',
+            'waypoints = wro_behavior.waypoints:main',
+            'open_mission = wro_behavior.open_mission:main',
         ],
     },
 )

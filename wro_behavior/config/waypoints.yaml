@@ -1,0 +1,44 @@
+# Waypoint list for mission_open.py.
+#
+# Frame: `map`, matching wro_nav2/maps/wro_field.yaml. The field is a 3 m x
+# 3 m square, walls at +/-1.51 (outer) and +/-0.49 (inner). Lane centre is
+# at radius 1.0 from field centre (halfway between inner and outer walls).
+#
+# `waypoints` lists the four corner points the loop passes through, in
+# order — the mission node connects them with straight-line segments to
+# make one lap. CCW list runs the corners counter-clockwise; CW is the
+# same points reversed.
+#
+# `start_pose` is what the mission node publishes to /initialpose (AMCL
+# seed) at startup — must match where the robot physically starts.
+# `stop_pose` is where lap 3 ends and the robot halts.
+# `field_center` is the origin for the sector-based corner counter.
+#
+# All values in meters and radians. Yaw = 0 faces +X, +pi/2 faces +Y.
+
+field_center: [0.0, 0.0]
+
+# Lane-center corner waypoints. One lap = pass through all four in order.
+waypoints:
+  ccw:
+    - [ 1.0, -1.0]     # SE corner
+    - [ 1.0,  1.0]     # NE corner
+    - [-1.0,  1.0]     # NW corner
+    - [-1.0, -1.0]     # SW corner
+  cw:
+    - [-1.0, -1.0]
+    - [-1.0,  1.0]
+    - [ 1.0,  1.0]
+    - [ 1.0, -1.0]
+
+# Robot spawn / initial-pose seed. x, y, yaw (rad).
+# CCW: south lane, facing east (positive X).
+# CW: south lane, facing west (negative X).
+start_pose:
+  ccw: [0.0, -1.0, 0.0]
+  cw:  [0.0, -1.0, 3.14159]
+
+# Where lap 3 ends. Somewhere on the start straight past the last corner.
+stop_pose:
+  ccw: [0.0, -1.0, 0.0]
+  cw:  [0.0, -1.0, 3.14159]

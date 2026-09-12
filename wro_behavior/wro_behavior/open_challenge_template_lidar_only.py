@@ -141,9 +141,9 @@ class OpenChallenge(Node):
 
         # ---- Sensor readings you probably want ----
         # front, left, right — median range in a small arc.
-        front = median_in_arc(scan, 0.0+math.pi/2)
-        left = median_in_arc(scan, 7*math.pi /18+math.pi/2)
-        right = median_in_arc(scan, -7*math.pi /18+math.pi/2)
+        front = median_in_arc(scan, 0.0)
+        left = median_in_arc(scan, 7*math.pi /18)
+        right = median_in_arc(scan, -7*math.pi /18)
         # Diagonals often help for smoother wall-following:
         # front_left  = median_in_arc(scan, math.radians(45))
         # front_right = median_in_arc(scan, math.radians(-45))
@@ -190,6 +190,7 @@ class OpenChallenge(Node):
                 self.state = 'LANE_FOLLOW'
                 self.corners_done += 1
                 self.exit_streak = 0
+        
         elif self.state == 'CORNER_RIGHT':
             cmd.angular.z = -1.2
             cmd.linear.x = 0.15
@@ -245,7 +246,7 @@ class OpenChallenge(Node):
         # Safety override: stop if anything in front ±15° is under 0.15 m.
         if self.latest_scan is not None:
             s = self.latest_scan
-            idx0 = int((math.pi / 2 - s.angle_min) / s.angle_increment)
+            idx0 = int((0.0 - s.angle_min) / s.angle_increment)
             half = int(math.radians(15) / s.angle_increment)
             lo = max(0, idx0 - half)
             hi = min(len(s.ranges), idx0 + half + 1)
