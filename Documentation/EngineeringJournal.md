@@ -4,8 +4,6 @@
 - Software Architecture and Obstacle Strategy
 - Systems Thinking and Engineering Decisions
 
-# Mobility and Mechanical Design
-
 ## Car Base Iterations
 
 ### Version 1.0: 3D-Printed Base
@@ -69,9 +67,7 @@ The motor mount screws into the chassis to hold the motor in place.
 The battery, on/off switch, and Power Distribution Board use 3D-printed PLA mounts that screw into the wooden plate.
 
 ### Plate Supports
-Four metal GoBilda standoffs connect the two levels and support the top plate.
-
-# Power and Sensor Architecture 
+Four metal GoBilda standoffs connect the two levels and support the top plate. 
 
 ## Power Distribution
 
@@ -85,6 +81,8 @@ Battery → Fuse → Switch → PDB
 ```
 
 The ESC controls the motor, the step-down converter lowers the voltage for the servo, and the last branch powers the Orin.
+
+Our battery is an 11.1V 3S LiPo, which is fine for the motor and the Orin but would immediately fry the servo, since the Traxxas 2265 is rated for around 6V. The Pololu S13V30F5 step-down regulator drops the 11.1V down to a clean 5V, which is safe for the servo and is also the voltage most of our smaller electronics expect. This way one battery powers the whole car, and each device gets the voltage it actually needs.
 
 Only power connections are shown, not signal wires.
 
@@ -118,6 +116,18 @@ We then switched to the RPLIDAR A3 because we expected it to be more reliable. I
 
 However, it was still too large to fit on our robot. It was also heavy and expensive, so we switched to our current LiDAR, the LDRobot LD19.
 
+## Odometry Calibration
+
+Our SparkFun OTOS sensor does not report distance and rotation perfectly, so we calibrate it before use. We drove the car along a known straight line and compared the reported distance to the real distance to get a linear scalar of 0.99554497057, then rotated the car through a known angle and did the same to get an angular scalar of 0.99995448187. We also run `calibrate_otos.py`, which records the sensor for 15 seconds while the car is still and measures the standard deviation of its readings, since the OTOS reports small nonzero values even when nothing is moving. Those standard deviations become the covariances we give the EKF, so it knows how much to trust the sensor.
+
+## Scan Filter
+
+Our LiDAR sometimes returns bad readings, so we run every scan through a filter before using it. Any point closer than 10 cm is dropped because it is almost always a reflection off the car itself, and any point farther than 4 m is dropped because the LiDAR returns a max-range value when it does not hit anything. A speckle filter then removes isolated points that differ from their neighbors by more than 0.5 m, which cleans up random spikes. This leaves us with a scan that only contains real walls and obstacles.
+
+## Training the Limelight
+
+We run object detection on the Limelight to find the red and green pillars, the orange and blue corner lines, and the black outer wall. To train it we took pictures of the real field from many angles, distances, and lighting conditions, then drew bounding boxes around each object and labeled it with the correct class. The Limelight web interface trained a neural detector on this data, which we then deployed to the camera. The pillar detections tell us which side to pass an obstacle on, while the corner lines and black wall give us fixed features we can use to localize the car on the field.
+
 ## Open Loop Logic
 
 For our open loop, we use a state machine with 5 states, each one leading to another:
@@ -146,11 +156,3 @@ For our obstacle loop, we use a state machine with 6 states, each one leading to
 (Obstacle) Our obstacle state keeps the robot turns either left or right of obstacle depending on the color detection of the camera, Once it finishes, the state sets back to Lane Follow.
 
 (Park) Our parking state keeps the robot going forward until it is halfway in the tunnel, where it started, and then changes the state to Stop.
-
-(Stop) Our stop state keeps the robot from moving and does not activate a new state.
-
-
-
-
-
-
