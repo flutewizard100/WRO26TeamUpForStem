@@ -255,6 +255,8 @@ class OpenChallenge(Node):
             if front and min(front) < 0.15:
                 cmd.linear.x = 0.0
                 cmd.angular.z = 0.0
+                print("stop")
+        print(cmd)
         self.cmd_pub.publish(cmd)
 
 
