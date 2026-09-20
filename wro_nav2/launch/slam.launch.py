@@ -17,16 +17,11 @@ from launch_ros.substitutions import FindPackageShare
 
 def generate_launch_description():
     pkg_wro_nav2 = get_package_share_directory('wro_nav2')
-
+    pkg_wro_robot = get_package_share_directory('WRORobot')
     default_params = os.path.join(pkg_wro_nav2, 'params', 'nav2_params.yaml')
     default_slam_params = os.path.join(
-<<<<<<< HEAD
         pkg_wro_robot, 'config', 'slam_params.yaml')
     print(default_slam_params)
-=======
-        pkg_wro_nav2, 'params', 'slam.yaml')
-
->>>>>>> 0e49dc8 (New Open)
     use_sim_time = LaunchConfiguration('use_sim_time')
     autostart = LaunchConfiguration('autostart')
     params_file = LaunchConfiguration('params_file')
@@ -50,6 +45,7 @@ def generate_launch_description():
             slam_params_file,
             {'use_sim_time': use_sim_time},
         ],
+        
     )
 
     # Bring up Nav2's navigation-only side (planner/controller/behavior/bt).

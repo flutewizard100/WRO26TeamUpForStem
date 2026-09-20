@@ -7,15 +7,7 @@ from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
-    hardware = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([
-            PathJoinSubstitution([
-                FindPackageShare('WRORobot'),
-                'launch',
-                'hardware.launch.py',
-            ])
-        ]),
-    )
+    
 
     open_challenge = Node(
         package='wro_behavior',

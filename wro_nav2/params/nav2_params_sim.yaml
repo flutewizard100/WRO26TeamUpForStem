@@ -1,6 +1,6 @@
 # Sim-time Nav2 parameters — identical to nav2_params.yaml except:
 #   - use_sim_time: true everywhere
-#   - inflation_radius reduced to 0.07 (per plan; sim has cleaner obstacle data)
+#   - inflation_radius reduced to 0.2 (per plan; sim has cleaner obstacle data)
 #
 # Keep this in sync with nav2_params.yaml when you change controller/planner
 # tuning. TODO(measure): once the real chassis dims are locked in, refresh
@@ -237,7 +237,7 @@ local_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 3.0
-        inflation_radius: 0.07
+        inflation_radius: 0.2
       always_send_full_costmap: true
 
 global_costmap:
@@ -277,7 +277,7 @@ global_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 3.0
-        inflation_radius: 0.07
+        inflation_radius: 0.2
       always_send_full_costmap: true
 
 map_server:
