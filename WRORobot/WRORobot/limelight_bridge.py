@@ -487,10 +487,6 @@ class LimelightBridge(Node):
 
             return
 
-        self.get_logger().info(
-            f'ACTIVE PIPELINE: '
-            f'{self._current_pipeline}'
-        )
 
         # ============================================================
         # PARSE GENERAL RESULT
@@ -569,10 +565,6 @@ class LimelightBridge(Node):
         # PUBLISH
         # ============================================================
 
-        self.get_logger().info(
-            f'PUBLISHING: '
-            f'{len(msg.detections)} detections'
-        )
 
         self._pub.publish(msg)
 
@@ -596,21 +588,7 @@ class LimelightBridge(Node):
             parsed.detectorResults
         )
 
-        self.get_logger().info(
-            f'DETECTOR RESULTS: '
-            f'{len(detector_results)}'
-        )
-
         for det in detector_results:
-
-            self.get_logger().info(
-                f'NEURAL DETECTION: '
-                f'class={det.class_name!r}, '
-                f'confidence={det.confidence}, '
-                f'points={det.points}, '
-                f'target_x={det.target_x_pixels}, '
-                f'target_y={det.target_y_pixels}'
-            )
 
             if (
                 det.confidence
@@ -665,10 +643,6 @@ class LimelightBridge(Node):
             []
         )
 
-        self.get_logger().info(
-            f'PYTHONOUT RAW: '
-            f'{python_out}'
-        )
 
         # ------------------------------------------------------------
         # Limelight can sometimes give us [].
@@ -679,9 +653,6 @@ class LimelightBridge(Node):
             or len(python_out) == 0
         ):
 
-            self.get_logger().info(
-                'SnapScript: PythonOut is empty.'
-            )
 
             return
 
@@ -722,10 +693,6 @@ class LimelightBridge(Node):
 
             return
 
-        self.get_logger().info(
-            f'PYTHONOUT PARSED: '
-            f'{python_out}'
-        )
 
         # ------------------------------------------------------------
         # Your SnapScript format:
@@ -783,16 +750,6 @@ class LimelightBridge(Node):
 
             return
 
-        self.get_logger().info(
-            f'SNAP SCRIPT: '
-            f'detected={detected}, '
-            f'angle={turn_angle:.2f}, '
-            f'x={target_x:.1f}, '
-            f'y={target_y:.1f}, '
-            f'w={bbox_w:.1f}, '
-            f'h={bbox_h:.1f}, '
-            f'error={pixel_error:.1f}'
-        )
 
         # ------------------------------------------------------------
         # No Orange Line.

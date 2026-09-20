@@ -1,0 +1,33 @@
+[INFO] [launch]: All log files can be found below /home/wroteam/.ros/log/2026-09-20-15-03-32-442556-sagnikbiswas-22360
+[INFO] [launch]: Default logging verbosity is set to INFO
+/home/wroteam/WRO26TeamUpForStem/install/WRORobot/share/WRORobot/config/slam_params.yaml
+<launch.actions.declare_launch_argument.DeclareLaunchArgument object at 0xffff7b9ff950>
+/home/wroteam/WRO26TeamUpForStem/install/WRORobot/share/WRORobot/config/slam_params.yaml
+<launch.actions.declare_launch_argument.DeclareLaunchArgument object at 0xffff7b9fb7d0>
+/home/wroteam/WRO26TeamUpForStem/install/WRORobot/share/WRORobot/config/slam_params.yaml
+<launch.actions.declare_launch_argument.DeclareLaunchArgument object at 0xffff7b9f9bb0>
+[INFO] [ldlidar_ros2_node-1]: process started with pid [22364]
+[INFO] [robot_state_publisher-2]: process started with pid [22365]
+[INFO] [async_slam_toolbox_node-3]: process started with pid [22366]
+[INFO] [controller_server-4]: process started with pid [22367]
+[INFO] [smoother_server-5]: process started with pid [22368]
+[INFO] [planner_server-6]: process started with pid [22369]
+[INFO] [route_server-7]: process started with pid [22370]
+[INFO] [behavior_server-8]: process started with pid [22371]
+[INFO] [bt_navigator-9]: process started with pid [22372]
+[INFO] [waypoint_follower-10]: process started with pid [22375]
+[INFO] [velocity_smoother-11]: process started with pid [22376]
+[INFO] [collision_monitor-12]: process started with pid [22379]
+[INFO] [opennav_docking-13]: process started with pid [22380]
+[INFO] [lifecycle_manager-14]: process started with pid [22381]
+[INFO] [lifecycle_manager-15]: process started with pid [22382]
+[INFO] [scan_to_scan_filter_chain-16]: process started with pid [22383]
+[INFO] [HighController-17]: process started with pid [22384]
+[INFO] [calibrate_otos-18]: process started with pid [22389]
+[INFO] [Motor-19]: process started with pid [22400]
+[INFO] [Servo-20]: process started with pid [22403]
+[INFO] [otos_node-21]: process started with pid [22407]
+[INFO] [ekf_node-22]: process started with pid [22424]
+[INFO] [limelight_bridge-23]: process started with pid [22430]
+[INFO] [waypoints-24]: process started with pid [22435]
+[INFO] [open_mission-25]: process started with pid [22438]

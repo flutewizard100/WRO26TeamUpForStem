@@ -249,12 +249,12 @@ planner_server:
       downsample_costmap: false
       downsampling_factor: 1
       allow_unknown: true
-      max_iterations: 1000000
+      max_iterations: 100000
       max_on_approach_iterations: 1000
-      max_planning_time: 5.0
+      max_planning_time: 15.0
       motion_model_for_search: "DUBIN"
       angle_quantization_bins: 72
-      analytic_expansion_ratio: 3.5
+      analytic_expansion_ratio: 2.0
       analytic_expansion_max_length: 3.0
       minimum_turning_radius: 0.35
       reverse_penalty: 2.0
@@ -263,11 +263,11 @@ planner_server:
       cost_penalty: 2.0
       retrospective_penalty: 0.015
       lookup_table_size: 20.0
-      cache_obstacle_heuristic: false
+      cache_obstacle_heuristic: true
       debug_visualizations: false
       use_quadratic_cost_penalty: false
       downsample_obstacle_heuristic: true
-      allow_primitive_interpolation: false
+      allow_primitive_interpolation: true
       smoother:
         max_iterations: 1000
         w_smooth: 0.3
