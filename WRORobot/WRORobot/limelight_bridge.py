@@ -1,24 +1,54 @@
+
 #!/usr/bin/env python3
-"""ROS 2 bridge node for Limelight 3 running an SSD MobileNet detector.
 
-Data flow:
-    Limelight camera -> WebSocket JSON -> parse -> per-detection distance
-        from bbox pixel-height + known real-world pillar height -> publish
-        vision_msgs/Detection2DArray on /limelight/detections.
+"""
+ROS 2 bridge node for Limelight 3A.
 
-Assumes the Limelight is running a neural-detector pipeline whose classes are
-labeled "red_pillar" and "green_pillar" (or whatever labels.txt contains).
-The label strings are passed through verbatim as Detection2D result class_id;
-downstream code decides what a label means.
+Limelight pipelines:
 
-Pose semantics:
-    Per-detection pose is populated in the CAMERA OPTICAL frame
-    (X right, Y down, Z forward). URDF must publish TF from base_link to
-    the frame configured via the `frame_id` parameter. Downstream nodes
-    should tf2 the pose into whatever frame they need.
+    Pipeline 0:
+        Neural Detector
+        Detects:
+            Red_Obstacle
+            Green_Obstacle
+
+    Pipeline 1:
+        SnapScript
+        Detects:
+            Orange_Line
+
+The SnapScript sends PythonOut:
+
+    [
+        detected,
+        turnAngle,
+        targetX,
+        targetY,
+        width,
+        height,
+        pixelError,
+        0
+    ]
+
+ROS output:
+
+    /limelight/detections
+
+Message type:
+
+    vision_msgs/Detection2DArray
+
+Camera resolution:
+
+    1280 x 960
+
+Camera optical frame:
+
+    X = right
+    Y = down
+    Z = forward
 """
 
-import math
 import threading
 from typing import Optional
 
@@ -43,284 +73,1245 @@ from WRORobot import limelightresults
 
 
 class LimelightBridge(Node):
+
     def __init__(self) -> None:
         super().__init__('limelight_bridge')
 
-        # --- parameters -----------------------------------------------------
-        # Camera intrinsics. Defaults are the NOMINAL LL3 values computed from
-        # its 62.5x48.9 deg FOV at the native 640x480 resolution. For accurate
-        # 3D pose, run task #15 (intrinsic calibration) and override these.
-        self.declare_parameter('fx', 527.05)
-        self.declare_parameter('fy', 528.13)
-        self.declare_parameter('cx', 320.0)
-        self.declare_parameter('cy', 240.0)
-        self.declare_parameter('image_width', 640)
-        self.declare_parameter('image_height', 480)
+        # ================================================================
+        # CAMERA SETTINGS
+        # ================================================================
 
-        # Real-world height of the target used for range-from-bbox-height.
-        # WRO Future Engineers red/green pillars are 10 cm.
+        self.declare_parameter('image_width', 1280)
+        self.declare_parameter('image_height', 960)
+
+        # Nominal intrinsics scaled from 640x480.
+        #
+        # Replace these with calibrated values if you have them.
+        self.declare_parameter('fx', 1054.10)
+        self.declare_parameter('fy', 1056.26)
+        self.declare_parameter('cx', 640.0)
+        self.declare_parameter('cy', 480.0)
+
+        # Physical height of the red/green obstacles.
         self.declare_parameter('pillar_height_m', 0.10)
 
-        # Discovery + connection.
-        # If discovery fails and `fallback_ip` is set, connect there directly.
+        # ================================================================
+        # LIMELIGHT CONNECTION
+        # ================================================================
+
         self.declare_parameter('fallback_ip', '')
         self.declare_parameter('discovery_timeout_s', 2.0)
         self.declare_parameter('reconnect_period_s', 2.0)
 
-        # Publish rate for the outgoing Detection2DArray. The WebSocket callback
-        # updates latest_results asynchronously; the timer polls that at this
-        # rate. Set >= LL frame rate to avoid dropping.
+        # ================================================================
+        # ROS SETTINGS
+        # ================================================================
+
         self.declare_parameter('publish_rate_hz', 30.0)
 
-        # TF frame that per-detection poses are expressed in. Matches the
-        # camera_optical_frame published by robot_state_publisher from
-        # WRORobot/urdf/wro_bot.urdf.xacro (attached to camera_link, which is
-        # the Limelight's physical mount on the chassis).
-        self.declare_parameter('frame_id', 'camera_optical_frame')
-
-        # Minimum detection confidence to publish. Below this we discard.
-        self.declare_parameter('min_confidence', 0.30)
-
-        self._fx = float(self.get_parameter('fx').value)
-        self._fy = float(self.get_parameter('fy').value)
-        self._cx = float(self.get_parameter('cx').value)
-        self._cy = float(self.get_parameter('cy').value)
-        self._image_width = int(self.get_parameter('image_width').value)
-        self._image_height = int(self.get_parameter('image_height').value)
-        self._pillar_height_m = float(self.get_parameter('pillar_height_m').value)
-        self._fallback_ip = str(self.get_parameter('fallback_ip').value)
-        self._discovery_timeout_s = float(self.get_parameter('discovery_timeout_s').value)
-        self._reconnect_period_s = float(self.get_parameter('reconnect_period_s').value)
-        self._publish_period_s = 1.0 / float(self.get_parameter('publish_rate_hz').value)
-        self._frame_id = str(self.get_parameter('frame_id').value)
-        self._min_confidence = float(self.get_parameter('min_confidence').value)
-
-        # --- publishers -----------------------------------------------------
-        self._pub = self.create_publisher(
-            Detection2DArray, '/limelight/detections', 10
+        self.declare_parameter(
+            'frame_id',
+            'camera_optical_frame'
         )
 
-        # --- limelight connection state -------------------------------------
-        self._ll: Optional[limelight.Limelight] = None
+        self.declare_parameter(
+            'min_confidence',
+            0.0
+        )
+
+        # ================================================================
+        # PIPELINE SETTINGS
+        # ================================================================
+
+        # Your Limelight configuration:
+        #
+        #   0 = Neural Detector
+        #   1 = SnapScript
+        #
+        self.neural_pipeline = 0
+        self.snapscript_pipeline = 1
+
+        # How long each pipeline remains active.
+        #
+        # 0.30 seconds is a reasonable starting point.
+        #
+        # The sequence becomes:
+        #
+        #   pipeline 0 for 0.30 sec
+        #   pipeline 1 for 0.30 sec
+        #   pipeline 0 for 0.30 sec
+        #   pipeline 1 for 0.30 sec
+        #
+        self.pipeline_switch_period_s = 0.30
+
+        self._current_pipeline = self.neural_pipeline
+
+        self._last_pipeline_switch_time = (
+            self.get_clock().now()
+        )
+
+        # ================================================================
+        # READ PARAMETERS
+        # ================================================================
+
+        self._image_width = int(
+            self.get_parameter('image_width').value
+        )
+
+        self._image_height = int(
+            self.get_parameter('image_height').value
+        )
+
+        self._fx = float(
+            self.get_parameter('fx').value
+        )
+
+        self._fy = float(
+            self.get_parameter('fy').value
+        )
+
+        self._cx = float(
+            self.get_parameter('cx').value
+        )
+
+        self._cy = float(
+            self.get_parameter('cy').value
+        )
+
+        self._pillar_height_m = float(
+            self.get_parameter('pillar_height_m').value
+        )
+
+        self._fallback_ip = str(
+            self.get_parameter('fallback_ip').value
+        )
+
+        self._discovery_timeout_s = float(
+            self.get_parameter('discovery_timeout_s').value
+        )
+
+        self._reconnect_period_s = float(
+            self.get_parameter('reconnect_period_s').value
+        )
+
+        publish_rate_hz = float(
+            self.get_parameter('publish_rate_hz').value
+        )
+
+        self._publish_period_s = (
+            1.0 / publish_rate_hz
+        )
+
+        self._frame_id = str(
+            self.get_parameter('frame_id').value
+        )
+
+        self._min_confidence = float(
+            self.get_parameter('min_confidence').value
+        )
+
+        # ================================================================
+        # ROS PUBLISHER
+        # ================================================================
+
+        self._pub = self.create_publisher(
+            Detection2DArray,
+            '/limelight/detections',
+            10
+        )
+
+        # ================================================================
+        # LIMELIGHT STATE
+        # ================================================================
+
+        self._ll: Optional[
+            limelight.Limelight
+        ] = None
+
         self._ll_lock = threading.Lock()
+
+        # ================================================================
+        # CONNECT
+        # ================================================================
+
         self._connect_and_start()
 
-        # --- polling timer --------------------------------------------------
-        # The websocket receiver in limelight.py stores frames into
-        # self._ll.latest_results. We poll and publish at fixed rate. This
-        # decouples ROS publishing from the websocket thread and avoids
-        # rclpy thread-safety questions.
-        self._timer = self.create_timer(self._publish_period_s, self._on_timer)
+        # ================================================================
+        # MAIN TIMER
+        # ================================================================
 
-        # Reconnect watchdog: if ll is None (never connected or dropped),
-        # try to re-establish.
-        self._reconnect_timer = self.create_timer(
-            self._reconnect_period_s, self._reconnect_if_needed
+        self._timer = self.create_timer(
+            self._publish_period_s,
+            self._on_timer
         )
 
-    # ------------------------------------------------------------------ setup
+        # ================================================================
+        # RECONNECT TIMER
+        # ================================================================
+
+        self._reconnect_timer = self.create_timer(
+            self._reconnect_period_s,
+            self._reconnect_if_needed
+        )
+
+        self.get_logger().info(
+            '================================================'
+        )
+
+        self.get_logger().info(
+            'Limelight Bridge Started'
+        )
+
+        self.get_logger().info(
+            'Pipeline 0 = Neural Detector'
+        )
+
+        self.get_logger().info(
+            'Pipeline 1 = SnapScript / Orange Line'
+        )
+
+        self.get_logger().info(
+            'Camera = 1280 x 960'
+        )
+
+        self.get_logger().info(
+            '================================================'
+        )
+
+    # ====================================================================
+    # CONNECTION
+    # ====================================================================
 
     def _connect_and_start(self) -> None:
+
         with self._ll_lock:
+
             if self._ll is not None:
                 return
+
             address = self._discover_or_fallback()
+
             if not address:
+
                 self.get_logger().warn(
-                    'No Limelight found via discovery and no fallback_ip set; '
-                    'will keep retrying every %.1fs' % self._reconnect_period_s
+                    'No Limelight found. '
+                    'Will retry.'
                 )
+
                 return
+
             try:
+
                 ll = limelight.Limelight(address)
+
                 ll.enable_websocket()
+
                 self._ll = ll
-                self.get_logger().info(f'Connected to Limelight at {address}')
+
+                # Start on Neural Detector.
+                try:
+
+                    ll.pipeline_switch(
+                        self.neural_pipeline
+                    )
+
+                    self._current_pipeline = (
+                        self.neural_pipeline
+                    )
+
+                    self._last_pipeline_switch_time = (
+                        self.get_clock().now()
+                    )
+
+                    self.get_logger().info(
+                        'Initial pipeline = 0 '
+                        '(Neural Detector)'
+                    )
+
+                except Exception as exc:
+
+                    self.get_logger().warn(
+                        f'Could not select initial pipeline: '
+                        f'{exc}'
+                    )
+
+                self.get_logger().info(
+                    f'Connected to Limelight at {address}'
+                )
+
             except Exception as exc:
-                self.get_logger().error(f'Failed to connect to {address}: {exc}')
+
+                self.get_logger().error(
+                    f'Failed to connect to Limelight: {exc}'
+                )
+
                 self._ll = None
 
-    def _discover_or_fallback(self) -> Optional[str]:
+    def _discover_or_fallback(
+        self
+    ) -> Optional[str]:
+
         try:
-            found = limelight.discover_limelights(
-                timeout=self._discovery_timeout_s
+
+            found = (
+                limelight.discover_limelights(
+                    timeout=self._discovery_timeout_s
+                )
             )
+
         except Exception as exc:
-            self.get_logger().warn(f'Discovery raised: {exc}')
-            found = []
-        if found:
-            return found[0]
-        if self._fallback_ip:
-            self.get_logger().info(
-                f'Discovery empty; using fallback_ip={self._fallback_ip}'
+
+            self.get_logger().warn(
+                f'Discovery raised: {exc}'
             )
+
+            found = []
+
+        if found:
+
+            return found[0]
+
+        if self._fallback_ip:
+
+            self.get_logger().info(
+                f'Using fallback IP: '
+                f'{self._fallback_ip}'
+            )
+
             return self._fallback_ip
+
         return None
 
     def _reconnect_if_needed(self) -> None:
+
         with self._ll_lock:
+
             if self._ll is not None:
                 return
+
         self._connect_and_start()
 
-    # -------------------------------------------------------------- main loop
+    # ====================================================================
+    # PIPELINE SWITCHING
+    # ====================================================================
 
-    def _on_timer(self) -> None:
+    def _maybe_switch_pipeline(self) -> None:
+
         with self._ll_lock:
             ll = self._ll
+
         if ll is None:
             return
-        raw = ll.get_latest_results()
-        if raw is None:
+
+        now = self.get_clock().now()
+
+        elapsed = (
+            now
+            - self._last_pipeline_switch_time
+        ).nanoseconds / 1e9
+
+        if elapsed < self.pipeline_switch_period_s:
+
             return
+
+        # ------------------------------------------------------------
+        # Neural -> SnapScript
+        # ------------------------------------------------------------
+
+        if (
+            self._current_pipeline
+            == self.neural_pipeline
+        ):
+
+            new_pipeline = (
+                self.snapscript_pipeline
+            )
+
+            self.get_logger().info(
+                'SWITCH: Pipeline 0 -> Pipeline 1 '
+                '(SnapScript)'
+            )
+
+        # ------------------------------------------------------------
+        # SnapScript -> Neural
+        # ------------------------------------------------------------
+
+        else:
+
+            new_pipeline = (
+                self.neural_pipeline
+            )
+
+            self.get_logger().info(
+                'SWITCH: Pipeline 1 -> Pipeline 0 '
+                '(Neural Detector)'
+            )
+
         try:
-            parsed = limelightresults.parse_results(raw)
+
+            ll.pipeline_switch(
+                new_pipeline
+            )
+
+            self._current_pipeline = (
+                new_pipeline
+            )
+
+            self._last_pipeline_switch_time = now
+
         except Exception as exc:
-            self.get_logger().warn(f'parse_results failed: {exc}', throttle_duration_sec=2.0)
+
+            self.get_logger().error(
+                f'Pipeline switch failed: {exc}'
+            )
+
+    # ====================================================================
+    # MAIN LOOP
+    # ====================================================================
+
+    def _on_timer(self) -> None:
+
+        with self._ll_lock:
+            ll = self._ll
+
+        if ll is None:
             return
-        if parsed is None or not parsed.detectorResults:
-            # Publish an empty array so consumers see a fresh "no targets" heartbeat.
-            self._pub.publish(self._make_empty_msg())
+
+        # ============================================================
+        # GET RAW LIMELIGHT DATA
+        # ============================================================
+
+        raw = ll.get_latest_results()
+
+        if raw is None:
+
             return
+
+        self.get_logger().info(
+            f'ACTIVE PIPELINE: '
+            f'{self._current_pipeline}'
+        )
+
+        # ============================================================
+        # PARSE GENERAL RESULT
+        # ============================================================
+
+        try:
+
+            parsed = (
+                limelightresults.parse_results(
+                    raw
+                )
+            )
+
+        except Exception as exc:
+
+            self.get_logger().warn(
+                f'parse_results failed: {exc}',
+                throttle_duration_sec=2.0
+            )
+
+            self._maybe_switch_pipeline()
+
+            return
+
+        if parsed is None:
+
+            self._maybe_switch_pipeline()
+
+            return
+
+        # ============================================================
+        # CREATE ROS MESSAGE
+        # ============================================================
 
         msg = Detection2DArray()
-        msg.header.stamp = self._stamp_from_result(parsed)
-        msg.header.frame_id = self._frame_id
 
-        for det in parsed.detectorResults:
-            if det.confidence < self._min_confidence:
-                continue
-            d2d = self._make_detection(det, msg.header.stamp)
-            if d2d is not None:
-                msg.detections.append(d2d)
+        msg.header.stamp = (
+            self._stamp_from_result(parsed)
+        )
+
+        msg.header.frame_id = (
+            self._frame_id
+        )
+
+        # ============================================================
+        # PIPELINE 0
+        # NEURAL DETECTOR
+        # ============================================================
+
+        if (
+            self._current_pipeline
+            == self.neural_pipeline
+        ):
+
+            self._process_neural_pipeline(
+                parsed,
+                msg
+            )
+
+        # ============================================================
+        # PIPELINE 1
+        # SNAP SCRIPT
+        # ============================================================
+
+        elif (
+            self._current_pipeline
+            == self.snapscript_pipeline
+        ):
+
+            self._process_snapscript_pipeline(
+                raw,
+                msg
+            )
+
+        # ============================================================
+        # PUBLISH
+        # ============================================================
+
+        self.get_logger().info(
+            f'PUBLISHING: '
+            f'{len(msg.detections)} detections'
+        )
 
         self._pub.publish(msg)
 
-    def _make_empty_msg(self) -> Detection2DArray:
-        m = Detection2DArray()
-        m.header.stamp = self.get_clock().now().to_msg()
-        m.header.frame_id = self._frame_id
-        return m
+        # ============================================================
+        # POSSIBLY SWITCH
+        # ============================================================
 
-    def _stamp_from_result(self, parsed) -> TimeMsg:
-        # LL reports capture_latency (ms) + targeting_latency (ms). Back-date
-        # the current time by that total to approximate the true capture
-        # instant on this host's clock. Not synchronized to LL's own clock
-        # (would need PTP for that), but good enough for planners.
-        total_latency_ms = float(parsed.capture_latency or 0.0) + \
-                           float(parsed.targeting_latency or 0.0) + \
-                           float(parsed.parse_latency or 0.0)
-        now = self.get_clock().now()
-        stamp = (now - Duration(seconds=total_latency_ms / 1000.0)).to_msg()
-        return stamp
+        self._maybe_switch_pipeline()
 
-    # -------------------------------------------------------- one detection
+    # ====================================================================
+    # NEURAL PIPELINE
+    # ====================================================================
 
-    def _make_detection(self, det, stamp) -> Optional[Detection2D]:
-        # LL's DetectorResult.points is a list of [x, y] corner coords in
-        # image pixel space. Compute bbox size from min/max.
-        try:
-            xs = [float(p[0]) for p in det.points]
-            ys = [float(p[1]) for p in det.points]
-        except (TypeError, ValueError, IndexError):
-            self.get_logger().warn(
-                'DetectorResult.points malformed; skipping detection',
-                throttle_duration_sec=2.0,
+    def _process_neural_pipeline(
+        self,
+        parsed,
+        msg
+    ) -> None:
+
+        detector_results = (
+            parsed.detectorResults
+        )
+
+        self.get_logger().info(
+            f'DETECTOR RESULTS: '
+            f'{len(detector_results)}'
+        )
+
+        for det in detector_results:
+
+            self.get_logger().info(
+                f'NEURAL DETECTION: '
+                f'class={det.class_name!r}, '
+                f'confidence={det.confidence}, '
+                f'points={det.points}, '
+                f'target_x={det.target_x_pixels}, '
+                f'target_y={det.target_y_pixels}'
             )
+
+            if (
+                det.confidence
+                < self._min_confidence
+            ):
+
+                continue
+
+            detection = (
+                self._make_neural_detection(
+                    det,
+                    msg.header.stamp
+                )
+            )
+
+            if detection is not None:
+
+                msg.detections.append(
+                    detection
+                )
+
+    # ====================================================================
+    # SNAP SCRIPT PIPELINE
+    # ====================================================================
+
+    def _process_snapscript_pipeline(
+        self,
+        raw,
+        msg
+    ) -> None:
+
+        # ------------------------------------------------------------
+        # IMPORTANT:
+        #
+        # GeneralResult does NOT expose PythonOut as an attribute in
+        # your version of limelightresults.py.
+        #
+        # Therefore we read it directly from the raw JSON dictionary.
+        # ------------------------------------------------------------
+
+        if not isinstance(raw, dict):
+
+            self.get_logger().error(
+                'SnapScript pipeline returned '
+                'non-dictionary raw data.'
+            )
+
+            return
+
+        python_out = raw.get(
+            'PythonOut',
+            []
+        )
+
+        self.get_logger().info(
+            f'PYTHONOUT RAW: '
+            f'{python_out}'
+        )
+
+        # ------------------------------------------------------------
+        # Limelight can sometimes give us [].
+        # ------------------------------------------------------------
+
+        if (
+            python_out is None
+            or len(python_out) == 0
+        ):
+
+            self.get_logger().info(
+                'SnapScript: PythonOut is empty.'
+            )
+
+            return
+
+        # ------------------------------------------------------------
+        # Some Limelight versions may wrap the values.
+        #
+        # Handle both:
+        #
+        #   [1, 2, 3, ...]
+        #
+        # and:
+        #
+        #   [[1, 2, 3, ...]]
+        # ------------------------------------------------------------
+
+        if (
+            isinstance(python_out, list)
+            and len(python_out) == 1
+            and isinstance(
+                python_out[0],
+                list
+            )
+        ):
+
+            python_out = python_out[0]
+
+        # ------------------------------------------------------------
+        # We expect 8 values.
+        # ------------------------------------------------------------
+
+        if len(python_out) < 8:
+
+            self.get_logger().error(
+                f'PythonOut has '
+                f'{len(python_out)} values. '
+                f'Expected at least 8.'
+            )
+
+            return
+
+        self.get_logger().info(
+            f'PYTHONOUT PARSED: '
+            f'{python_out}'
+        )
+
+        # ------------------------------------------------------------
+        # Your SnapScript format:
+        #
+        # [0] detected
+        # [1] turnAngle
+        # [2] targetX
+        # [3] targetY
+        # [4] width
+        # [5] height
+        # [6] pixelError
+        # [7] unused
+        # ------------------------------------------------------------
+
+        try:
+
+            detected = float(
+                python_out[0]
+            )
+
+            turn_angle = float(
+                python_out[1]
+            )
+
+            target_x = float(
+                python_out[2]
+            )
+
+            target_y = float(
+                python_out[3]
+            )
+
+            bbox_w = float(
+                python_out[4]
+            )
+
+            bbox_h = float(
+                python_out[5]
+            )
+
+            pixel_error = float(
+                python_out[6]
+            )
+
+        except (
+            TypeError,
+            ValueError,
+            IndexError
+        ) as exc:
+
+            self.get_logger().error(
+                f'Could not parse PythonOut: '
+                f'{exc}'
+            )
+
+            return
+
+        self.get_logger().info(
+            f'SNAP SCRIPT: '
+            f'detected={detected}, '
+            f'angle={turn_angle:.2f}, '
+            f'x={target_x:.1f}, '
+            f'y={target_y:.1f}, '
+            f'w={bbox_w:.1f}, '
+            f'h={bbox_h:.1f}, '
+            f'error={pixel_error:.1f}'
+        )
+
+        # ------------------------------------------------------------
+        # No Orange Line.
+        # ------------------------------------------------------------
+
+        if detected <= 0:
+
+            self.get_logger().info(
+                'Orange Line: NOT DETECTED'
+            )
+
+            return
+
+        # ------------------------------------------------------------
+        # Validate bbox.
+        # ------------------------------------------------------------
+
+        if (
+            bbox_w <= 0
+            or bbox_h <= 0
+        ):
+
+            self.get_logger().warn(
+                f'Orange Line has invalid bbox: '
+                f'w={bbox_w}, '
+                f'h={bbox_h}'
+            )
+
+            return
+
+        # ------------------------------------------------------------
+        # Create Orange Line detection.
+        # ------------------------------------------------------------
+
+        detection = (
+            self._make_orange_line_detection(
+                target_x,
+                target_y,
+                bbox_w,
+                bbox_h,
+                turn_angle,
+                pixel_error,
+                msg.header.stamp
+            )
+        )
+
+        if detection is not None:
+
+            msg.detections.append(
+                detection
+            )
+
+    # ====================================================================
+    # NEURAL DETECTION -> ROS
+    # ====================================================================
+
+    def _make_neural_detection(
+        self,
+        det,
+        stamp
+    ) -> Optional[Detection2D]:
+
+        # ------------------------------------------------------------
+        # Get bounding-box corner points.
+        # ------------------------------------------------------------
+
+        try:
+
+            xs = [
+                float(p[0])
+                for p in det.points
+            ]
+
+            ys = [
+                float(p[1])
+                for p in det.points
+            ]
+
+        except (
+            TypeError,
+            ValueError,
+            IndexError
+        ):
+
+            self.get_logger().error(
+                'Malformed neural detector points.'
+            )
+
             return None
 
         if not xs or not ys:
+
+            self.get_logger().error(
+                f'Neural detector has no points: '
+                f'{det.points}'
+            )
+
             return None
 
-        bbox_w_px = max(xs) - min(xs)
-        bbox_h_px = max(ys) - min(ys)
-        if bbox_w_px <= 0 or bbox_h_px <= 0:
+        # ------------------------------------------------------------
+        # Calculate bbox.
+        # ------------------------------------------------------------
+
+        bbox_w_px = (
+            max(xs) - min(xs)
+        )
+
+        bbox_h_px = (
+            max(ys) - min(ys)
+        )
+
+        if (
+            bbox_w_px <= 0
+            or bbox_h_px <= 0
+        ):
+
+            self.get_logger().error(
+                f'Invalid neural bbox: '
+                f'w={bbox_w_px}, '
+                f'h={bbox_h_px}'
+            )
+
             return None
 
-        # Prefer LL-provided center; fall back to bbox midpoint.
-        u = float(det.target_x_pixels) if det.target_x_pixels is not None \
-            else (min(xs) + bbox_w_px / 2.0)
-        v = float(det.target_y_pixels) if det.target_y_pixels is not None \
-            else (min(ys) + bbox_h_px / 2.0)
+        # ------------------------------------------------------------
+        # Center.
+        # ------------------------------------------------------------
 
-        # Range from apparent height: same size gives smaller pixel height
-        # the further away it is. Only valid when the sensor sees the FULL
-        # height of the target (bbox not clipped by frame edge).
-        # z = (real_height_m * fy) / bbox_height_px
-        z = (self._pillar_height_m * self._fy) / bbox_h_px
+        if det.target_x_pixels is not None:
 
-        # Project the center pixel back to a 3D ray at that depth.
-        # Camera optical frame: X right, Y down, Z forward.
-        x_cam = (u - self._cx) * z / self._fx
-        y_cam = (v - self._cy) * z / self._fy
+            u = float(
+                det.target_x_pixels
+            )
+
+        else:
+
+            u = (
+                min(xs)
+                + bbox_w_px / 2.0
+            )
+
+        if det.target_y_pixels is not None:
+
+            v = float(
+                det.target_y_pixels
+            )
+
+        else:
+
+            v = (
+                min(ys)
+                + bbox_h_px / 2.0
+            )
+
+        # ------------------------------------------------------------
+        # Distance from known obstacle height.
+        # ------------------------------------------------------------
+
+        z = (
+            self._pillar_height_m
+            * self._fy
+            / bbox_h_px
+        )
+
+        # ------------------------------------------------------------
+        # Camera optical coordinates.
+        # ------------------------------------------------------------
+
+        x_cam = (
+            (u - self._cx)
+            * z
+            / self._fx
+        )
+
+        y_cam = (
+            (v - self._cy)
+            * z
+            / self._fy
+        )
+
         z_cam = z
 
+        # ------------------------------------------------------------
+        # Detection2D.
+        # ------------------------------------------------------------
+
         d2d = Detection2D()
+
         d2d.header.stamp = stamp
-        d2d.header.frame_id = self._frame_id
+        d2d.header.frame_id = (
+            self._frame_id
+        )
+
+        # ------------------------------------------------------------
+        # Bounding box.
+        # ------------------------------------------------------------
 
         d2d.bbox = BoundingBox2D()
+
         d2d.bbox.center = Pose2D()
+
         d2d.bbox.center.position = Point2D()
+
         d2d.bbox.center.position.x = u
         d2d.bbox.center.position.y = v
         d2d.bbox.center.theta = 0.0
+
         d2d.bbox.size_x = bbox_w_px
         d2d.bbox.size_y = bbox_h_px
 
+        # ------------------------------------------------------------
+        # Hypothesis.
+        # ------------------------------------------------------------
+
         hyp = ObjectHypothesisWithPose()
+
         hyp.hypothesis = ObjectHypothesis()
-        hyp.hypothesis.class_id = str(det.class_name)
-        hyp.hypothesis.score = float(det.confidence)
+
+        hyp.hypothesis.class_id = str(
+            det.class_name
+        )
+
+        hyp.hypothesis.score = float(
+            det.confidence
+        )
+
+        # ------------------------------------------------------------
+        # Pose.
+        # ------------------------------------------------------------
+
         hyp.pose.pose = Pose()
-        hyp.pose.pose.position.x = x_cam
-        hyp.pose.pose.position.y = y_cam
-        hyp.pose.pose.position.z = z_cam
-        # Identity orientation — we don't know the pillar's yaw, only its
-        # position. Consumers should treat orientation as unspecified.
+
+        hyp.pose.pose.position.x = (
+            x_cam
+        )
+
+        hyp.pose.pose.position.y = (
+            y_cam
+        )
+
+        hyp.pose.pose.position.z = (
+            z_cam
+        )
+
+        # Unknown orientation.
         hyp.pose.pose.orientation.w = 1.0
 
-        # Populate a coarse covariance so downstream fusion knows how much
-        # to trust this. Range uncertainty grows with distance^2 (bbox
-        # discretization error). Rough model, not calibrated.
-        var_z = max(1e-4, (0.05 * z_cam) ** 2)
-        var_xy = max(1e-4, (0.03 * z_cam) ** 2)
-        hyp.pose.covariance = [0.0] * 36
-        hyp.pose.covariance[0]  = var_xy      # X
-        hyp.pose.covariance[7]  = var_xy      # Y
-        hyp.pose.covariance[14] = var_z       # Z
-        hyp.pose.covariance[21] = 1e6         # roll — unknown
-        hyp.pose.covariance[28] = 1e6         # pitch — unknown
-        hyp.pose.covariance[35] = 1e6         # yaw — unknown
+        # ------------------------------------------------------------
+        # Covariance.
+        # ------------------------------------------------------------
 
-        d2d.results.append(hyp)
-        d2d.id = str(det.class_name)
+        var_z = max(
+            1e-4,
+            (0.05 * z_cam) ** 2
+        )
+
+        var_xy = max(
+            1e-4,
+            (0.03 * z_cam) ** 2
+        )
+
+        hyp.pose.covariance = [0.0] * 36
+
+        hyp.pose.covariance[0] = var_xy
+        hyp.pose.covariance[7] = var_xy
+        hyp.pose.covariance[14] = var_z
+
+        # Unknown orientation.
+        hyp.pose.covariance[21] = 1e6
+        hyp.pose.covariance[28] = 1e6
+        hyp.pose.covariance[35] = 1e6
+
+        d2d.results.append(
+            hyp
+        )
+
+        d2d.id = str(
+            det.class_name
+        )
+
+        self.get_logger().info(
+            f'NEURAL ROS DETECTION: '
+            f'{det.class_name}, '
+            f'x={x_cam:.3f}, '
+            f'y={y_cam:.3f}, '
+            f'z={z_cam:.3f}'
+        )
+
         return d2d
 
-    # ---------------------------------------------------------- cleanup
+    # ====================================================================
+    # ORANGE LINE -> ROS
+    # ====================================================================
+
+    def _make_orange_line_detection(
+        self,
+        target_x,
+        target_y,
+        bbox_w,
+        bbox_h,
+        turn_angle,
+        pixel_error,
+        stamp
+    ) -> Optional[Detection2D]:
+
+        d2d = Detection2D()
+
+        d2d.header.stamp = stamp
+
+        d2d.header.frame_id = (
+            self._frame_id
+        )
+
+        # ------------------------------------------------------------
+        # Bounding box.
+        # ------------------------------------------------------------
+
+        d2d.bbox = BoundingBox2D()
+
+        d2d.bbox.center = Pose2D()
+
+        d2d.bbox.center.position = Point2D()
+
+        d2d.bbox.center.position.x = (
+            target_x
+        )
+
+        d2d.bbox.center.position.y = (
+            target_y
+        )
+
+        d2d.bbox.center.theta = 0.0
+
+        d2d.bbox.size_x = bbox_w
+        d2d.bbox.size_y = bbox_h
+
+        # ------------------------------------------------------------
+        # Hypothesis.
+        # ------------------------------------------------------------
+
+        hyp = ObjectHypothesisWithPose()
+
+        hyp.hypothesis = ObjectHypothesis()
+
+        hyp.hypothesis.class_id = (
+            'Orange_Line'
+        )
+
+        # SnapScript does not provide a confidence.
+        hyp.hypothesis.score = 1.0
+
+        # ------------------------------------------------------------
+        # We do NOT know the physical distance to the Orange Line.
+        #
+        # Therefore don't pretend that x/y/z are metric coordinates.
+        #
+        # Instead, provide the normalized camera ray:
+        #
+        #   x = horizontal ray
+        #   y = vertical ray
+        #   z = 1
+        #
+        # This gives downstream code a direction to the Orange Line.
+        # ------------------------------------------------------------
+
+        ray_x = (
+            target_x - self._cx
+        ) / self._fx
+
+        ray_y = (
+            target_y - self._cy
+        ) / self._fy
+
+        hyp.pose.pose = Pose()
+
+        hyp.pose.pose.position.x = (
+            ray_x
+        )
+
+        hyp.pose.pose.position.y = (
+            ray_y
+        )
+
+        hyp.pose.pose.position.z = 1.0
+
+        # Unknown orientation.
+        hyp.pose.pose.orientation.w = 1.0
+
+        # Position is not metric.
+        hyp.pose.covariance = [0.0] * 36
+
+        hyp.pose.covariance[0] = 1e6
+        hyp.pose.covariance[7] = 1e6
+        hyp.pose.covariance[14] = 1e6
+
+        hyp.pose.covariance[21] = 1e6
+        hyp.pose.covariance[28] = 1e6
+        hyp.pose.covariance[35] = 1e6
+
+        d2d.results.append(
+            hyp
+        )
+
+        d2d.id = 'Orange_Line'
+
+        self.get_logger().info(
+            f'ORANGE LINE ROS DETECTION: '
+            f'x={target_x:.1f}, '
+            f'y={target_y:.1f}, '
+            f'w={bbox_w:.1f}, '
+            f'h={bbox_h:.1f}, '
+            f'angle={turn_angle:.2f} deg, '
+            f'pixel_error={pixel_error:.1f}'
+        )
+
+        return d2d
+
+    # ====================================================================
+    # TIMESTAMP
+    # ====================================================================
+
+    def _stamp_from_result(
+        self,
+        parsed
+    ) -> TimeMsg:
+
+        capture_latency = float(
+            getattr(
+                parsed,
+                'capture_latency',
+                0.0
+            ) or 0.0
+        )
+
+        targeting_latency = float(
+            getattr(
+                parsed,
+                'targeting_latency',
+                0.0
+            ) or 0.0
+        )
+
+        parse_latency = float(
+            getattr(
+                parsed,
+                'parse_latency',
+                0.0
+            ) or 0.0
+        )
+
+        total_latency_ms = (
+            capture_latency
+            + targeting_latency
+            + parse_latency
+        )
+
+        now = self.get_clock().now()
+
+        stamp = (
+            now
+            - Duration(
+                seconds=(
+                    total_latency_ms / 1000.0
+                )
+            )
+        ).to_msg()
+
+        return stamp
+
+    # ====================================================================
+    # CLEANUP
+    # ====================================================================
 
     def destroy_node(self):
+
         with self._ll_lock:
+
             if self._ll is not None:
+
                 try:
+
                     self._ll.disable_websocket()
+
                 except Exception:
+
                     pass
+
                 self._ll = None
+
         super().destroy_node()
 
 
+# ========================================================================
+# MAIN
+# ========================================================================
+
 def main(args=None):
+
     rclpy.init(args=args)
+
     node = LimelightBridge()
+
     try:
+
         rclpy.spin(node)
+
     except KeyboardInterrupt:
+
         pass
+
     finally:
+
         node.destroy_node()
-        rclpy.shutdown()
+
+        if rclpy.ok():
+
+            rclpy.shutdown()
 
 
 if __name__ == '__main__':
+
     main()
