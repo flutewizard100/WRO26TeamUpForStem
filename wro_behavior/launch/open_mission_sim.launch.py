@@ -55,6 +55,14 @@ def generate_launch_description():
         }.items(),
     )
 
+    waypoints = Node(
+        package='wro_behavior',
+        executable='waypoints',
+        name='waypoints',
+        output='screen',
+        parameters=[{'use_sim_time': True}],
+    )
+
     open_challenge = Node(
         package='wro_behavior',
         executable='open_mission',
@@ -68,5 +76,6 @@ def generate_launch_description():
         simulator,
         waypoint_bridge,
         navigation,
+        waypoints,
         open_challenge,
     ])
