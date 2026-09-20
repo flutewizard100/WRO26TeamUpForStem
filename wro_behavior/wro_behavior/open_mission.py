@@ -10,10 +10,7 @@ from lifecycle_msgs.srv import GetState
 
 
 WAYPOINTS = [
-    (1.2, 0),
-    (1.2, 2.4),
-    (-1.2, 2.4),
-    (-1.2, 0),
+    (0.9, 0)
 ]
 
 

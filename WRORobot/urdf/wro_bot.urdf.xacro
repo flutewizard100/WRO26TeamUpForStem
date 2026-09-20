@@ -25,7 +25,7 @@
   <!-- TODO(measure): chassis outer box from CAD -->
   <xacro:property name="chassis_length" value="0.28"/>
   <xacro:property name="chassis_width" value="0.16"/>
-  <xacro:property name="chassis_height" value="0.19"/>
+  <xacro:property name="chassis_height" value="0.085"/>
 
   <!-- Sensor mount offsets (all in base_link frame). -->
   <!-- TODO(measure): lidar mount position on real bot.
@@ -36,9 +36,9 @@
        Z sits inside the chassis collision box and will produce self-hits
        (0.13-0.16 m returns on every ray). Shrink chassis_height to a
        realistic WRO value (~0.05 m) before trusting scans. -->
-  <xacro:property name="lidar_xyz" value="0.0 0.05 ${-0.018 + chassis_z}"/>
+  <xacro:property name="lidar_xyz" value="0.0 0.05 ${0.085-chassis_z}"/>
   <!-- TODO(measure): IMU mount position on real bot -->
-  <xacro:property name="imu_xyz" value="0.0 0.09 ${0.10 + chassis_z}"/>
+  <xacro:property name="imu_xyz" value="0.0 0.00 0.01"/>
   <!-- TODO(measure): camera mount position on real bot (front-facing).
        On the real bot this is the Limelight 3's front mount; in sim it's
        the Gazebo RGB camera. Same URDF frame, one physical intent.
@@ -46,11 +46,11 @@
        plus the camera body half-depth (~0.01). Sitting camera at exactly
        chassis_length/2 puts the sensor inside the chassis geometry and
        renders a blank/single-color image. -->
-  <xacro:property name="camera_x" value="0.2162"/>
+  <xacro:property name="camera_x" value="0.02162"/>
   <xacro:property name="camera_y" value="0.0"/>
   <xacro:property name="camera_z" value="0.0466"/>
   <!-- Camera pitch: negative = looking down (WRO block detection). -->
-  <xacro:property name="camera_pitch" value="${-20 * pi / 180}"/>
+  <xacro:property name="camera_pitch" value="${-pi/9}"/>
 
   <!-- Derived. -->
   <xacro:property name="half_l" value="${wheelbase/2}"/>
@@ -72,9 +72,9 @@
   <!-- ============================================================
        Reusable macros.
        ============================================================ -->
-  <xacro:macro name="inertial_box" params="mass x y z offset_z:=0">
+  <xacro:macro name="inertial_box" params="mass x y z">
     <inertial>
-      <origin xyz="0 0 ${offset_z}" rpy="0 0 0"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
       <mass value="${mass}"/>
       <inertia
         ixx="${(1.0/12.0)*mass*(y*y + z*z)}" ixy="0" ixz="0"
@@ -126,19 +126,19 @@
        ============================================================ -->
   <link name="base_link">
     <visual>
-      <origin xyz="0 0 ${chassis_z}" rpy="0 0 0"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
         <box size="${chassis_length} ${chassis_width} ${chassis_height}"/>
       </geometry>
       <material name="wro_body_grey"/>
     </visual>
     <collision>
-      <origin xyz="0 0 ${chassis_z}" rpy="0 0 0"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
         <box size="${chassis_length} ${chassis_width} ${chassis_height}"/>
       </geometry>
     </collision>
-    <xacro:inertial_box mass="1.5" x="${chassis_length}" y="${chassis_width}" z="${chassis_height}" offset_z="${chassis_z}"/>
+    <xacro:inertial_box mass="1.5" x="${chassis_length}" y="${chassis_width}" z="${chassis_height}"/>
   </link>
 
   <!-- Steering knuckles (front left, front right). -->
@@ -152,7 +152,7 @@
   <joint name="front_left_wheel_steer_joint" type="revolute">
     <parent link="base_link"/>
     <child link="front_left_wheel_steer"/>
-    <origin xyz="${half_l} ${half_t} ${-chassis_height/2 + chassis_z}" rpy="0 0 0"/>
+    <origin xyz="${half_l} ${half_t} ${-chassis_height/2}" rpy="0 0 0"/>
     <axis xyz="0 0 1"/>
     <limit lower="${-max_steer_angle}" upper="${max_steer_angle}"
            effort="10.0" velocity="5.0"/>
@@ -161,7 +161,7 @@
   <joint name="front_right_wheel_steer_joint" type="revolute">
     <parent link="base_link"/>
     <child link="front_right_wheel_steer"/>
-    <origin xyz="${half_l} ${-half_t} ${-chassis_height/2 + chassis_z}" rpy="0 0 0"/>
+    <origin xyz="${half_l} ${-half_t} ${-chassis_height/2}" rpy="0 0 0"/>
     <axis xyz="0 0 1"/>
     <limit lower="${-max_steer_angle}" upper="${max_steer_angle}"
            effort="10.0" velocity="5.0"/>
@@ -190,14 +190,14 @@
   <joint name="rear_left_wheel_joint" type="continuous">
     <parent link="base_link"/>
     <child link="rear_left_wheel"/>
-    <origin xyz="${-half_l} ${half_t} ${-chassis_height/2 + chassis_z}" rpy="0 0 0"/>
+    <origin xyz="${-half_l} ${half_t} ${-chassis_height/2}" rpy="0 0 0"/>
     <axis xyz="0 1 0"/>
   </joint>
 
   <joint name="rear_right_wheel_joint" type="continuous">
     <parent link="base_link"/>
     <child link="rear_right_wheel"/>
-    <origin xyz="${-half_l} ${-half_t} ${-chassis_height/2 + chassis_z}" rpy="0 0 0"/>
+    <origin xyz="${-half_l} ${-half_t} ${-chassis_height/2}" rpy="0 0 0"/>
     <axis xyz="0 1 0"/>
   </joint>
 
@@ -243,7 +243,7 @@
   <joint name="base_link_to_camera_link" type="fixed">
     <parent link="base_link"/>
     <child link="camera_link"/>
-    <origin xyz="${camera_x} ${camera_y} ${camera_z + chassis_z}" rpy="0 ${camera_pitch} 0"/>
+    <origin xyz="${camera_x} ${camera_y} ${camera_z}" rpy="0 ${camera_pitch} 0"/>
   </joint>
 
   <!-- ROS image convention frame (Z forward, X right, Y down). Attach the
