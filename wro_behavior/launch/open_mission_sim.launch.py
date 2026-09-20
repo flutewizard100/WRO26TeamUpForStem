@@ -19,16 +19,6 @@ def generate_launch_description():
         ])
     )
 
-    simulator = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            PathJoinSubstitution([
-                FindPackageShare('wro_sim'),
-                'launch',
-                'sim.launch.py',
-            ])
-        )
-    )
-
     waypoint_bridge = Node(
         package='waypoint_nav_bridge',
         executable='bridge',
@@ -41,27 +31,29 @@ def generate_launch_description():
     navigation = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution([
-                FindPackageShare('nav2_bringup'),
+                FindPackageShare('wro_nav2'),
                 'launch',
-                'bringup_launch.py',
+                'slam.launch.py',
             ])
         ),
         launch_arguments={
-            'slam': 'True',
             'use_sim_time': 'true',
             'autostart': 'true',
-            'use_composition': 'False',
             'params_file': params_file,
         }.items(),
     )
 
-    waypoints = Node(
-        package='wro_behavior',
-        executable='waypoints',
-        name='waypoints',
-        output='screen',
-        parameters=[{'use_sim_time': True}],
-    )
+    simulator = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            PathJoinSubstitution([
+                FindPackageShare('wro_sim'),
+                'launch',
+                'sim.launch.py',
+            ])
+        ),
+        launch_arguments={'rviz': 'true'}.items(),   # ← add this
+        )
+
 
     open_challenge = Node(
         package='wro_behavior',
@@ -76,6 +68,5 @@ def generate_launch_description():
         simulator,
         waypoint_bridge,
         navigation,
-        waypoints,
         open_challenge,
     ])

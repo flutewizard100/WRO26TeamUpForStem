@@ -34,10 +34,10 @@ def generate_launch_description():
         ),
     )
 
-    waypoints = Node(
-        package='wro_behavior',
-        executable='waypoints',
-        name='waypoints',
+    waypoint_bridge = Node(
+        package='waypoint_nav_bridge',
+        executable='bridge',
+        name='waypoint_nav_bridge',
         output='screen',
         parameters=[{'use_sim_time': False}],
     )
@@ -52,6 +52,6 @@ def generate_launch_description():
 
     return LaunchDescription([
         hardware,
-        waypoints,
+        waypoint_bridge,
         open_mission,
     ])

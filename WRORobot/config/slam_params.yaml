@@ -15,9 +15,11 @@ slam_toolbox:
 
     minimum_travel_distance: 0.1     # 10 cm — was 0.5 by default
     minimum_travel_heading: 0.15     # ~9 deg — was 0.5 rad
-    map_update_interval: 1.0         # 1 s — was 5.0 s
-    resolution: 0.05                 # 5 cm cells (fine for WRO)
+    map_update_interval: 3.0
+    resolution: 0.1
     max_laser_range: 3.0             # match LD19 range_max
+    throttle_scans: 3                # process every 3rd scan — reduces CPU
+    minimum_time_interval: 1.0       # min seconds between processed scans
 
 
     qos_overrides:
