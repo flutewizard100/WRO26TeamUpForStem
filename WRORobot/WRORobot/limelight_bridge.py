@@ -427,10 +427,6 @@ class LimelightBridge(Node):
                 self.snapscript_pipeline
             )
 
-            self.get_logger().info(
-                'SWITCH: Pipeline 0 -> Pipeline 1 '
-                '(SnapScript)'
-            )
 
         # ------------------------------------------------------------
         # SnapScript -> Neural
@@ -442,10 +438,6 @@ class LimelightBridge(Node):
                 self.neural_pipeline
             )
 
-            self.get_logger().info(
-                'SWITCH: Pipeline 1 -> Pipeline 0 '
-                '(Neural Detector)'
-            )
 
         try:
 
@@ -757,10 +749,6 @@ class LimelightBridge(Node):
 
         if detected <= 0:
 
-            self.get_logger().info(
-                'Orange Line: NOT DETECTED'
-            )
-
             return
 
         # ------------------------------------------------------------
@@ -771,12 +759,6 @@ class LimelightBridge(Node):
             bbox_w <= 0
             or bbox_h <= 0
         ):
-
-            self.get_logger().warn(
-                f'Orange Line has invalid bbox: '
-                f'w={bbox_w}, '
-                f'h={bbox_h}'
-            )
 
             return
 
@@ -1030,14 +1012,6 @@ class LimelightBridge(Node):
             det.class_name
         )
 
-        self.get_logger().info(
-            f'NEURAL ROS DETECTION: '
-            f'{det.class_name}, '
-            f'x={x_cam:.3f}, '
-            f'y={y_cam:.3f}, '
-            f'z={z_cam:.3f}'
-        )
-
         return d2d
 
     # ====================================================================
@@ -1154,16 +1128,6 @@ class LimelightBridge(Node):
         )
 
         d2d.id = 'Orange_Line'
-
-        self.get_logger().info(
-            f'ORANGE LINE ROS DETECTION: '
-            f'x={target_x:.1f}, '
-            f'y={target_y:.1f}, '
-            f'w={bbox_w:.1f}, '
-            f'h={bbox_h:.1f}, '
-            f'angle={turn_angle:.2f} deg, '
-            f'pixel_error={pixel_error:.1f}'
-        )
 
         return d2d
 
