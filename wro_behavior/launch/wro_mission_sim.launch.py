@@ -51,14 +51,21 @@ def generate_launch_description():
                 'sim.launch.py',
             ])
         ),
-        launch_arguments={'rviz': 'true'}.items(),   # ← add this
-        )
+        launch_arguments={'rviz': 'true'}.items(),
+    )
 
-
-    open_challenge = Node(
+    mission = Node(
         package='wro_behavior',
-        executable='open_mission',
-        name='open_mission',
+        executable='wro_mission',
+        name='wro_mission',
+        output='screen',
+        parameters=[{'use_sim_time': True}],
+    )
+
+    sim_limelight = Node(
+        package='wro_behavior',
+        executable='sim_limelight_bridge',
+        name='sim_limelight_bridge',
         output='screen',
         parameters=[{'use_sim_time': True}],
     )
@@ -68,5 +75,6 @@ def generate_launch_description():
         simulator,
         waypoint_bridge,
         navigation,
-        open_challenge,
+        sim_limelight,
+        mission,
     ])

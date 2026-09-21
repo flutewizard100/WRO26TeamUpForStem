@@ -1,19 +1,12 @@
-"""Real-hardware open mission launcher.
+"""Real-hardware WRO mission launcher.
 
 Composes:
-  - WRORobot/hardware.launch.py — lidar, IMU, motor, servo, otos, EKF, RSP,
-    laser filter, and SLAM Toolbox + Nav2 navigation stack (via
-    wro_nav2/slam.launch.py which hardware.launch.py already includes)
-  - wro_behavior/waypoints — reusable waypoint runner (Nav2 goal publisher +
-    arrival watcher)
-  - wro_behavior/open_mission — the mission logic node
+  - WRORobot/hardware.launch.py  — drivers + SLAM + Nav2 navigation
+  - waypoint_nav_bridge/bridge   — /waypoint (PoseStamped)  ->  Nav2 action
+  - wro_behavior/wro_mission     — unified open/obstacle mission logic
 
 Run:
-  ros2 launch wro_behavior open_mission_hw.launch.py
-
-Kill:
-  Ctrl+C, then
-  pkill -9 -f 'ros_gz|nav2|amcl|robot_state|lifecycle|_server|scan_filter|waypoints|open_mission|ldlidar|otos|Motor|Servo|HighController|limelight'
+  ros2 launch wro_behavior wro_mission_hw.launch.py
 """
 from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription
@@ -42,10 +35,10 @@ def generate_launch_description():
         parameters=[{'use_sim_time': False}],
     )
 
-    open_mission = Node(
+    mission = Node(
         package='wro_behavior',
-        executable='open_mission',
-        name='open_mission',
+        executable='wro_mission',
+        name='wro_mission',
         output='screen',
         parameters=[{'use_sim_time': False}],
     )
@@ -53,5 +46,5 @@ def generate_launch_description():
     return LaunchDescription([
         hardware,
         waypoint_bridge,
-        open_mission,
+        mission,
     ])

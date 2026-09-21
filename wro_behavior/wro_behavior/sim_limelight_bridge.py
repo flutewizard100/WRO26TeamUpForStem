@@ -8,7 +8,7 @@ publishes a vision_msgs/Detection2DArray on /limelight/detections.
 The message format is byte-compatible with the real Limelight bridge:
   header.frame_id  = 'camera_optical_frame'
   detections[i].bbox.center.{x,y} and size_{x,y} in pixels
-  detections[i].results[0].hypothesis.class_id = 'red_pillar' | 'green_pillar'
+  detections[i].results[0].hypothesis.class_id = 'Red_Pillar' | 'Green_Pillar' | 'Orange_Line' | 'Blue_Line'
   detections[i].results[0].pose.pose.position  = (x,y,z) in camera_optical_frame
     (X right, Y down, Z forward)
 
@@ -81,6 +81,8 @@ class SimLimelightBridge(Node):
         self.create_subscription(Image, '/camera', self.on_image, sensor_qos)
         self.pub = self.create_publisher(Detection2DArray, '/limelight/detections', 10)
 
+        self._debug_last_ns = 0
+
         self.get_logger().info('sim_limelight_bridge up (publishing to /limelight/detections)')
 
     # ------------------------------------------------------------------------
@@ -103,14 +105,14 @@ class SimLimelightBridge(Node):
         stamp = msg.header.stamp    # keep the camera capture stamp
 
         # Pillars — 3D pose from bbox height (real objects).
-        for class_name, mask in (('red_pillar', red_mask),
-                                 ('green_pillar', green_mask)):
+        for class_name, mask in (('Red_Pillar', red_mask),
+                                 ('Green_Pillar', green_mask)):
             for det in self.extract_detections(mask, min_area=MIN_BLOB_AREA):
                 detections.append(self.build_detection(det, class_name, stamp))
 
         # Floor lines — flat markers. Same message format, but pose.z ≈ 0.
-        for class_name, mask in (('orange_line', orange_mask),
-                                 ('blue_line',   blue_mask)):
+        for class_name, mask in (('Orange_Line', orange_mask),
+                                 ('Blue_Line',   blue_mask)):
             for det in self.extract_detections(mask, min_area=MIN_LINE_AREA):
                 detections.append(self.build_line_detection(det, class_name, stamp))
 
@@ -119,6 +121,22 @@ class SimLimelightBridge(Node):
         out.header.frame_id = FRAME_ID
         out.detections = detections
         self.pub.publish(out)
+
+        # ------------------------------------------------------------
+        # Temporary debug: once per second, report what the bridge sees.
+        # Remove once /limelight/detections is reliably populated.
+        # ------------------------------------------------------------
+        now_ns = self.get_clock().now().nanoseconds
+        if now_ns - self._debug_last_ns > 1_000_000_000:
+            self._debug_last_ns = now_ns
+            self.get_logger().info(
+                f'debug: encoding={msg.encoding} '
+                f'size={msg.width}x{msg.height} '
+                f'mask_px orange={int(np.count_nonzero(orange_mask))} '
+                f'blue={int(np.count_nonzero(blue_mask))} '
+                f'red={int(np.count_nonzero(red_mask))} '
+                f'green={int(np.count_nonzero(green_mask))} '
+                f'-> {len(detections)} detections')
 
     # ------------------------------------------------------------------------
     def extract_detections(self, mask: np.ndarray, min_area: int = MIN_BLOB_AREA

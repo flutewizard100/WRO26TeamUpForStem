@@ -50,7 +50,7 @@
   <xacro:property name="camera_y" value="0.0"/>
   <xacro:property name="camera_z" value="0.0466"/>
   <!-- Camera pitch: negative = looking down (WRO block detection). -->
-  <xacro:property name="camera_pitch" value="${-pi/9}"/>
+  <xacro:property name="camera_pitch" value="${pi/9}"/>
 
   <!-- Derived. -->
   <xacro:property name="half_l" value="${wheelbase/2}"/>

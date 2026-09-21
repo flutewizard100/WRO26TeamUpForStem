@@ -1,0 +1,63 @@
+# WRO Future Engineers unified mission config.
+# Consumed by wro_behavior/wro_mission.py.
+#
+# One codepath runs both challenges. Pillar avoidance is on unconditionally
+# (a no-op if there are no pillars). Endgame is auto-decided:
+#   * pillars ever seen  -> park in bay
+#   * no pillars seen    -> stop after last waypoint
+#
+# All coordinates in the `map` frame (matches wro_nav2/maps/wro_field.yaml).
+#
+# WRO field geometry:
+#   - Outer walls at ±1.51 m
+#   - Inner walls at ±0.49 m
+#   - Lane centerline at radius 1.0 m from field origin
+#   - Parking bay at (0, -1.37), opens along the +X/-X axis
+
+common:
+  corners_per_race: 12          # 4 corners × 3 laps
+
+  # ------------------------------------------------------------------
+  # 3-lap loop. One waypoint per straight (lane centre). Nav2 plans the
+  # corner curves between them. Order:
+  #   south  ->  east  ->  north  ->  west  ->  south  (CCW)
+  # ------------------------------------------------------------------
+  waypoints_ccw:
+    # Lap 1
+    - [ 1.0,  0.0]    # east lane centre
+    - [ 0.0,  1.0]    # north lane centre
+    - [-1.0,  0.0]    # west lane centre
+    - [ 0.0, -1.0]    # south lane centre
+    # Lap 2
+    - [ 1.0,  0.0]
+    - [ 0.0,  1.0]
+    - [-1.0,  0.0]
+    - [ 0.0, -1.0]
+    # Lap 3
+    - [ 1.0,  0.0]
+    - [ 0.0,  1.0]
+    - [-1.0,  0.0]
+    - [ 0.0, -1.0]    # stop pose on south straight
+
+  waypoints_cw:
+    # Lap 1 — mirror direction: south -> west -> north -> east -> south
+    - [-1.0,  0.0]
+    - [ 0.0,  1.0]
+    - [ 1.0,  0.0]
+    - [ 0.0, -1.0]
+    # Lap 2
+    - [-1.0,  0.0]
+    - [ 0.0,  1.0]
+    - [ 1.0,  0.0]
+    - [ 0.0, -1.0]
+    # Lap 3
+    - [-1.0,  0.0]
+    - [ 0.0,  1.0]
+    - [ 1.0,  0.0]
+    - [ 0.0, -1.0]
+
+  # Obstacle-challenge endgame: drive into the parking bay after the last
+  # waypoint. Only used if any pillars were seen during the run.
+  parking_pose:
+    ccw: [0.0, -1.37, 0.0]      # facing east
+    cw:  [0.0, -1.37, 3.14159]  # facing west
