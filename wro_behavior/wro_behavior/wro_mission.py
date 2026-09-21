@@ -2,8 +2,8 @@
 
 Explicit state machine:
 
-    NOT_READY --> WAITING_FOR_START --> DRIVING --> PARKING --> DONE
-                                            \-----------------^ (open mode)
+    NOT_READY --> WAITING_FOR_START --> DRIVING --+--> PARKING --> DONE
+                                                  \-------------> DONE  (open)
 
 Auto-decides the endgame at the finish:
   - If any red/green pillar was ever seen during the run  ->  PARKING
@@ -41,20 +41,17 @@ from wro_behavior.camera_perception import CameraPerception, PILLAR_RED
 
 PILLAR_PASS_OFFSET = 0.30    # how far off-path to swing around a pillar
 
-# STRAIGHT <-> TURNING hysteresis on the front-lidar reading.
-# When the wall ahead is closer than TURNING_FRONT_M we're mid-corner;
-# when it opens back up past STRAIGHT_FRONT_M we're on a straight again.
-TURNING_FRONT_M = 0.80
-STRAIGHT_FRONT_M = 1.20
+# Front-lidar threshold that trips the first-corner guard (a wall this
+# close means we've reached the first corner).
+FIRST_CORNER_FRONT_M = 0.80
 
 
 class State(IntEnum):
     NOT_READY = 0             # startup gates not yet cleared
     WAITING_FOR_START = 1     # Nav2 active, direction resolved, waiting for button
-    STRAIGHT = 2              # driving along a lane center toward a waypoint
-    TURNING = 3               # traversing a corner (wall detected ahead)
-    PARKING = 4               # endgame — heading into the parking bay
-    DONE = 5                  # mission complete, robot stopped
+    DRIVING = 2               # following waypoints (config or exploration)
+    PARKING = 3               # endgame — heading into the parking bay
+    DONE = 4                  # mission complete, robot stopped
 
 
 class WROMission(Node):
@@ -145,8 +142,8 @@ class WROMission(Node):
             self._tick_not_ready()
         elif self.state == State.WAITING_FOR_START:
             self._tick_waiting_for_start()
-        elif self.state in (State.STRAIGHT, State.TURNING):
-            self._update_driving_substate()
+        elif self.state == State.DRIVING:
+            self._first_corner_guard()
         elif self.state == State.PARKING:
             pass   # arrival handled by on_arrived
         elif self.state == State.DONE:
@@ -187,7 +184,7 @@ class WROMission(Node):
     def _tick_waiting_for_start(self) -> None:
         if not self.start_pressed:
             return
-        self._transition(State.STRAIGHT)
+        self._transition(State.DRIVING)
         self._send_next_waypoint()
 
     # ================================================================
@@ -195,11 +192,6 @@ class WROMission(Node):
     # and from on_arrived).
     # ================================================================
     def _send_next_waypoint(self) -> None:
-        # New leg starts as a straight. Lidar detection flips it to
-        # TURNING once a wall shows up ahead.
-        if self.state in (State.STRAIGHT, State.TURNING):
-            self._transition(State.STRAIGHT)
-
         # Opportunistic direction resolution each dispatch.
         if self.direction is None:
             d = self.camera.detect_direction()
@@ -292,23 +284,17 @@ class WROMission(Node):
             f'FINISHED (open: no pillars seen) corners={self.corners_done}')
 
     # ================================================================
-    # STRAIGHT <-> TURNING (front-lidar hysteresis)
+    # First-corner guard
     # ================================================================
-    def _update_driving_substate(self) -> None:
-        front = self.lidar.front_distance()
-        if front is None:
-            return
-        if self.state == State.STRAIGHT and front < TURNING_FRONT_M:
-            self._transition(State.TURNING)
-            self._first_corner_guard()
-        elif self.state == State.TURNING and front > STRAIGHT_FRONT_M:
-            self._transition(State.STRAIGHT)
-
     def _first_corner_guard(self) -> None:
-        """One-shot: if we reach the first corner having seen <=1 line
-        detections, the initial direction guess was probably wrong.
-        Flip direction and re-dispatch."""
+        """One-shot: the first time the front lidar shows a wall within
+        FIRST_CORNER_FRONT_M, check how many line detections have landed.
+        If <=1, the initial direction guess was probably wrong — flip it
+        and re-dispatch."""
         if self.first_corner_guard_fired:
+            return
+        front = self.lidar.front_distance()
+        if front is None or front >= FIRST_CORNER_FRONT_M:
             return
         self.first_corner_guard_fired = True
         if self.direction is None:
