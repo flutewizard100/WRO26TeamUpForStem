@@ -105,7 +105,7 @@ class WROMission(Node):
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
 
-        self.lidar = LidarPerception(self)
+        self.lidar = LidarPerception(self, self.tf_buffer)
         self.camera = CameraPerception(
             self, self.tf_buffer, pillar_confirm_count=pillar_confirm)
 
@@ -174,6 +174,9 @@ class WROMission(Node):
             return
 
         self.get_logger().info("DORINA: transition to WAITING_FOR_START")
+        self.get_logger().info("DORINA: fwd distance", lidar_perception.front_distance())
+        self.get_logger().info("DORINA: left distance", lidar_perception.left_distance())
+        self.get_logger().info("DORINA: right distance", lidar_perception.right_distance())
 
         # Direction is resolved opportunistically once we start moving
         # (the robot may need to drive forward before the camera can see
