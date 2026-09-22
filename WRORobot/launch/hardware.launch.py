@@ -1,8 +1,11 @@
-"""Real-robot hardware layer — drivers + local-pose fusion. No Nav2, no
-behavior, no SLAM.
+"""Real-robot hardware layer — drivers + local-pose fusion + SLAM + Nav2.
 
 Starts:
   - lidar (ldlidar_ros2)
+  - scan_filter (laser_filters) — /scan_raw -> /scan (drops self-hits + max-range phantoms)
+  - slam.launch.py — slam_toolbox (async) + Nav2 navigation stack (planner,
+    controller, BT, costmaps, smoother) + lifecycle_manager_slam. This is
+    what publishes map -> odom.
   - otos_node — publishes /odom (no TF; EKF owns odom->base_link now)
   - ekf_filter_node — fuses /odom (OTOS), /odometry/laser (LiDAR),
     /imu/data (IMU) into filtered odom->base_link. Graceful degradation:
@@ -15,14 +18,25 @@ Starts:
   - limelight_bridge — Limelight 3 neural detector, publishes
     vision_msgs/Detection2DArray on /limelight/detections
 
-Pair this with wro_nav2/nav2.launch.py and wro_behavior/behavior.launch.py to
-run the full real-robot stack, or use robot_stack.launch.py which composes
-all three. See INTERFACE.md at repo root for the topic/frame contract.
+Pair this with wro_behavior/behavior.launch.py for the mission layer, or use
+robot_stack.launch.py / wro_mission_hw.launch.py which compose it all. See
+INTERFACE.md at repo root for the topic/frame contract.
+
+NOTE: Because this launch already brings up Nav2 (via slam.launch.py), do NOT
+also include wro_nav2/nav2.launch.py alongside it — you'll spawn duplicate
+planner_server / controller_server / lifecycle_manager nodes and the whole
+stack will fight itself. If you want AMCL instead of SLAM, use nav2.launch.py
+by itself and strip the slam_launch include below.
 
 odom -> base_link ownership: ekf_filter_node is the sole publisher when
 fusion is enabled (see config/ekf.yaml). To run OTOS-standalone (no
 fusion), remove the ekf/madgwick/scan_matcher nodes below and set
 otos_node's `publish_tf` param to True.
+
+map -> odom ownership: slam_toolbox (via slam.launch.py). If Nav2 fails to
+activate with "extrapolation into the past" for map->base_link, the culprit
+is almost always slam_toolbox — check `ros2 lifecycle get /slam_toolbox`
+(should be 'active') and its stdout for crashes.
 """
 import os
 

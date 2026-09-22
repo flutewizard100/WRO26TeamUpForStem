@@ -16,6 +16,7 @@ from sensor_msgs.msg import LaserScan
 
 
 DEFAULT_HALF_WIDTH_RAD = math.radians(8)
+LASER_MOUNT_YAW_RAD = -1.5708 
 
 
 class LidarPerception:
@@ -58,6 +59,7 @@ class LidarPerception:
         scan = self.latest_scan
         if scan is None:
             return None
+        laser_center = center_rad - LASER_MOUNT_YAW_RAD #Change *
         vals = []
         for i, r in enumerate(scan.ranges):
             angle = scan.angle_min + i * scan.angle_increment

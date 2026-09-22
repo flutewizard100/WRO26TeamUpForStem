@@ -56,12 +56,12 @@ def generate_launch_description():
             'params_file': params_file,
             'autostart': autostart,
             'use_composition': use_composition,
-            # nav2_bringup evaluates these inside PythonExpression, so they
-            # must be Python-literal-cased ('False'/'True'). Pin them here so
+            # nav2_bringup evaluates 'slam' inside PythonExpression, so it
+            # must be Python-literal-cased ('False'/'True'). Pin it here so
             # a lowercase LaunchConfiguration from an outer include (e.g.
-            # sim_stack's 'slam:=false') can't leak in.
+            # sim_stack's 'slam:=false') can't leak in. With slam=False,
+            # bringup_launch.py automatically brings up map_server + amcl.
             'slam': 'False',
-            'use_localization': 'True',
         }.items(),
     )
 
