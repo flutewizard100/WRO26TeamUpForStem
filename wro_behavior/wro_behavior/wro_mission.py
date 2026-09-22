@@ -179,9 +179,9 @@ class WROMission(Node):
         self._transition(State.WAITING_FOR_START)
 
         self.get_logger().info("DORINA: transition to WAITING_FOR_START")
-        self.get_logger().info("DORINA: fwd distance" + str(self.lidar_perception.front_distance()))
-        self.get_logger().info("DORINA: left distance" + str(self.lidar_perception.left_min_distance()))
-        self.get_logger().info("DORINA: right distance" + str(self.lidar_perception.right_min_distance()))
+        self.get_logger().info("DORINA: fwd distance" + str(self.lidar.front_distance()))
+        self.get_logger().info("DORINA: left distance" + str(self.lidar.left_min_distance()))
+        self.get_logger().info("DORINA: right distance" + str(self.lidar.right_min_distance()))
 
     # ================================================================
     # WAITING_FOR_START — button gate
@@ -189,9 +189,9 @@ class WROMission(Node):
     def _tick_waiting_for_start(self) -> None:
         if not self.start_pressed:
             return
-        self.get_logger().info("DORINA: fwd distance" + str(self.lidar_perception.front_distance()))
-        self.get_logger().info("DORINA: left distance" + str(self.lidar_perception.left_min_distance()))
-        self.get_logger().info("DORINA: right distance" + str(self.lidar_perception.right_min_distance()))
+        self.get_logger().info("DORINA: fwd distance" + str(self.lidar.front_distance()))
+        self.get_logger().info("DORINA: left distance" + str(self.lidar.left_min_distance()))
+        self.get_logger().info("DORINA: right distance" + str(self.lidar.right_min_distance()))
         self.get_logger().info("DORINA: transition to DRIVING")
         self._transition(State.DRIVING)
         self._send_next_waypoint()
@@ -202,9 +202,9 @@ class WROMission(Node):
     # ================================================================
     def _send_next_waypoint(self) -> None:
         # Opportunistic direction resolution each dispatch.
-        self.get_logger().info("DORINA: fwd distance" + str(self.lidar_perception.front_distance()))
-        self.get_logger().info("DORINA: left distance" + str(self.lidar_perception.left_min_distance()))
-        self.get_logger().info("DORINA: right distance" + str(self.lidar_perception.right_min_distance()))
+        self.get_logger().info("DORINA: fwd distance" + str(self.lidar.front_distance()))
+        self.get_logger().info("DORINA: left distance" + str(self.lidar.left_min_distance()))
+        self.get_logger().info("DORINA: right distance" + str(self.lidar.right_min_distance()))
         self.get_logger().info("DORINA: detections", str(camera.detections))
         if self.direction is None:
             d = self.camera.detect_direction()
@@ -384,9 +384,9 @@ class WROMission(Node):
             if pose is None:
                 return []
             dyn = self.lidar.forward_edge_waypoint(pose)
-            self.get_logger().info("DORINA: fwd distance" + str(self.self.lidar_perception.front_distance()))
-            self.get_logger().info("DORINA: left distance" + str(self.self.lidar_perception.left_min_distance()))
-            self.get_logger().info("DORINA: right distance" + str(self.self.lidar_perception.right_min_distance()))
+            self.get_logger().info("DORINA: fwd distance" + str(self.self.lidar.front_distance()))
+            self.get_logger().info("DORINA: left distance" + str(self.self.lidar.left_min_distance()))
+            self.get_logger().info("DORINA: right distance" + str(self.self.lidar.right_min_distance()))
             self.get_logger().info("DORINA: detections", str(camera.detections))
             return [dyn] if dyn is not None else []
         return self.cfg.get(f'waypoints_{self.direction}', [])
