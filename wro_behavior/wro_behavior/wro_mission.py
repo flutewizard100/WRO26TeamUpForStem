@@ -189,6 +189,9 @@ class WROMission(Node):
     def _tick_waiting_for_start(self) -> None:
         if not self.start_pressed:
             return
+        self.get_logger().info("DORINA: fwd distance", lidar_perception.front_distance())
+        self.get_logger().info("DORINA: left distance", lidar_perception.left_distance())
+        self.get_logger().info("DORINA: right distance", lidar_perception.right_distance())
         self.get_logger().info("DORINA: transition to DRIVING")
         self._transition(State.DRIVING)
         self._send_next_waypoint()
@@ -199,9 +202,14 @@ class WROMission(Node):
     # ================================================================
     def _send_next_waypoint(self) -> None:
         # Opportunistic direction resolution each dispatch.
+        self.get_logger().info("DORINA: fwd distance", lidar_perception.front_distance())
+        self.get_logger().info("DORINA: left distance", lidar_perception.left_distance())
+        self.get_logger().info("DORINA: right distance", lidar_perception.right_distance())
+        self.get_logger().info("DORINA: detections", camera.detections)
         if self.direction is None:
             d = self.camera.detect_direction()
             if d is not None:
+                self.get_logger().info("DORINA: direction", d)
                 self.direction = d
                 self.i = 0          # first config waypoint starts fresh
                 self.get_logger().info(f'direction detected: {d}')
@@ -376,6 +384,10 @@ class WROMission(Node):
             if pose is None:
                 return []
             dyn = self.lidar.forward_edge_waypoint(pose)
+            self.get_logger().info("DORINA: fwd distance", lidar_perception.front_distance())
+            self.get_logger().info("DORINA: left distance", lidar_perception.left_distance())
+            self.get_logger().info("DORINA: right distance", lidar_perception.right_distance())
+            self.get_logger().info("DORINA: detections", camera.detections)
             return [dyn] if dyn is not None else []
         return self.cfg.get(f'waypoints_{self.direction}', [])
 
