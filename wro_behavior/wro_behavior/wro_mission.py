@@ -173,6 +173,8 @@ class WROMission(Node):
         if resp is None or resp.current_state.id != LifecycleState.PRIMARY_STATE_ACTIVE:
             return
 
+        self.get_logger().info("DORINA: transition to WAITING_FOR_START")
+
         # Direction is resolved opportunistically once we start moving
         # (the robot may need to drive forward before the camera can see
         # a line). No gate on it here.
@@ -184,6 +186,7 @@ class WROMission(Node):
     def _tick_waiting_for_start(self) -> None:
         if not self.start_pressed:
             return
+        self.get_logger().info("DORINA: transition to DRIVING")
         self._transition(State.DRIVING)
         self._send_next_waypoint()
 
