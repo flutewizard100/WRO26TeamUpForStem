@@ -17,7 +17,12 @@ Limelight pipelines:
         Detects:
             Orange_Line
 
-The SnapScript sends PythonOut:
+    Pipeline 2:
+        SnapScript
+        Detects:
+            Blue_Line
+
+The SnapScripts send PythonOut:
 
     [
         detected,
@@ -126,21 +131,21 @@ class LimelightBridge(Node):
         # Your Limelight configuration:
         #
         #   0 = Neural Detector
-        #   1 = SnapScript
+        #   1 = Orange Line SnapScript
+        #   2 = Blue Line SnapScript
         #
         self.neural_pipeline = 0
-        self.snapscript_pipeline = 1
+        self.orange_pipeline = 1
+        self.blue_pipeline = 2
 
         # How long each pipeline remains active.
-        #
-        # 0.30 seconds is a reasonable starting point.
         #
         # The sequence becomes:
         #
         #   pipeline 0 for 0.30 sec
         #   pipeline 1 for 0.30 sec
+        #   pipeline 2 for 0.30 sec
         #   pipeline 0 for 0.30 sec
-        #   pipeline 1 for 0.30 sec
         #
         self.pipeline_switch_period_s = 0.30
 
@@ -253,31 +258,6 @@ class LimelightBridge(Node):
             self._reconnect_period_s,
             self._reconnect_if_needed
         )
-
-        self.get_logger().info(
-            '================================================'
-        )
-
-        self.get_logger().info(
-            'Limelight Bridge Started'
-        )
-
-        self.get_logger().info(
-            'Pipeline 0 = Neural Detector'
-        )
-
-        self.get_logger().info(
-            'Pipeline 1 = SnapScript / Orange Line'
-        )
-
-        self.get_logger().info(
-            'Camera = 1280 x 960'
-        )
-
-        self.get_logger().info(
-            '================================================'
-        )
-
     # ====================================================================
     # CONNECTION
     # ====================================================================
@@ -415,29 +395,28 @@ class LimelightBridge(Node):
             return
 
         # ------------------------------------------------------------
-        # Neural -> SnapScript
+        # 0 -> 1
         # ------------------------------------------------------------
 
-        if (
-            self._current_pipeline
-            == self.neural_pipeline
-        ):
+        if self._current_pipeline == self.neural_pipeline:
 
-            new_pipeline = (
-                self.snapscript_pipeline
-            )
-
+            new_pipeline = self.orange_pipeline
 
         # ------------------------------------------------------------
-        # SnapScript -> Neural
+        # 1 -> 2
+        # ------------------------------------------------------------
+
+        elif self._current_pipeline == self.orange_pipeline:
+
+            new_pipeline = self.blue_pipeline
+
+        # ------------------------------------------------------------
+        # 2 -> 0
         # ------------------------------------------------------------
 
         else:
 
-            new_pipeline = (
-                self.neural_pipeline
-            )
-
+            new_pipeline = self.neural_pipeline
 
         try:
 
@@ -478,7 +457,6 @@ class LimelightBridge(Node):
         if raw is None:
 
             return
-
 
         # ============================================================
         # PARSE GENERAL RESULT
@@ -528,10 +506,7 @@ class LimelightBridge(Node):
         # NEURAL DETECTOR
         # ============================================================
 
-        if (
-            self._current_pipeline
-            == self.neural_pipeline
-        ):
+        if self._current_pipeline == self.neural_pipeline:
 
             self._process_neural_pipeline(
                 parsed,
@@ -540,23 +515,33 @@ class LimelightBridge(Node):
 
         # ============================================================
         # PIPELINE 1
-        # SNAP SCRIPT
+        # ORANGE LINE
         # ============================================================
 
-        elif (
-            self._current_pipeline
-            == self.snapscript_pipeline
-        ):
+        elif self._current_pipeline == self.orange_pipeline:
 
             self._process_snapscript_pipeline(
                 raw,
-                msg
+                msg,
+                'Orange_Line'
+            )
+
+        # ============================================================
+        # PIPELINE 2
+        # BLUE LINE
+        # ============================================================
+
+        elif self._current_pipeline == self.blue_pipeline:
+
+            self._process_snapscript_pipeline(
+                raw,
+                msg,
+                'Blue_Line'
             )
 
         # ============================================================
         # PUBLISH
         # ============================================================
-
 
         self._pub.publish(msg)
 
@@ -603,13 +588,14 @@ class LimelightBridge(Node):
                 )
 
     # ====================================================================
-    # SNAP SCRIPT PIPELINE
+    # SNAP SCRIPT PIPELINES
     # ====================================================================
 
     def _process_snapscript_pipeline(
         self,
         raw,
-        msg
+        msg,
+        line_name
     ) -> None:
 
         # ------------------------------------------------------------
@@ -635,7 +621,6 @@ class LimelightBridge(Node):
             []
         )
 
-
         # ------------------------------------------------------------
         # Limelight can sometimes give us [].
         # ------------------------------------------------------------
@@ -644,7 +629,6 @@ class LimelightBridge(Node):
             python_out is None
             or len(python_out) == 0
         ):
-
 
             return
 
@@ -685,9 +669,8 @@ class LimelightBridge(Node):
 
             return
 
-
         # ------------------------------------------------------------
-        # Your SnapScript format:
+        # SnapScript format:
         #
         # [0] detected
         # [1] turnAngle
@@ -742,9 +725,8 @@ class LimelightBridge(Node):
 
             return
 
-
         # ------------------------------------------------------------
-        # No Orange Line.
+        # No line detected.
         # ------------------------------------------------------------
 
         if detected <= 0:
@@ -763,17 +745,18 @@ class LimelightBridge(Node):
             return
 
         # ------------------------------------------------------------
-        # Create Orange Line detection.
+        # Create line detection.
         # ------------------------------------------------------------
 
         detection = (
-            self._make_orange_line_detection(
+            self._make_line_detection(
                 target_x,
                 target_y,
                 bbox_w,
                 bbox_h,
                 turn_angle,
                 pixel_error,
+                line_name,
                 msg.header.stamp
             )
         )
@@ -921,6 +904,7 @@ class LimelightBridge(Node):
         d2d = Detection2D()
 
         d2d.header.stamp = stamp
+
         d2d.header.frame_id = (
             self._frame_id
         )
@@ -1015,10 +999,10 @@ class LimelightBridge(Node):
         return d2d
 
     # ====================================================================
-    # ORANGE LINE -> ROS
+    # LINE -> ROS
     # ====================================================================
 
-    def _make_orange_line_detection(
+    def _make_line_detection(
         self,
         target_x,
         target_y,
@@ -1026,6 +1010,7 @@ class LimelightBridge(Node):
         bbox_h,
         turn_angle,
         pixel_error,
+        line_name,
         stamp
     ) -> Optional[Detection2D]:
 
@@ -1068,15 +1053,13 @@ class LimelightBridge(Node):
 
         hyp.hypothesis = ObjectHypothesis()
 
-        hyp.hypothesis.class_id = (
-            'Orange_Line'
-        )
+        hyp.hypothesis.class_id = line_name
 
         # SnapScript does not provide a confidence.
         hyp.hypothesis.score = 1.0
 
         # ------------------------------------------------------------
-        # We do NOT know the physical distance to the Orange Line.
+        # We do NOT know the physical distance to the line.
         #
         # Therefore don't pretend that x/y/z are metric coordinates.
         #
@@ -1086,7 +1069,7 @@ class LimelightBridge(Node):
         #   y = vertical ray
         #   z = 1
         #
-        # This gives downstream code a direction to the Orange Line.
+        # This gives downstream code a direction to the line.
         # ------------------------------------------------------------
 
         ray_x = (
@@ -1127,7 +1110,7 @@ class LimelightBridge(Node):
             hyp
         )
 
-        d2d.id = 'Orange_Line'
+        d2d.id = line_name
 
         return d2d
 
