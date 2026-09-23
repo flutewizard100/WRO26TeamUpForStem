@@ -52,7 +52,7 @@ CY = IMAGE_HEIGHT / 2.0
 # Real-world height of WRO pillars, used for range-from-bbox-height.
 PILLAR_HEIGHT_M = 0.10
 
-# HSV thresholds — same as obstacle_challenge_template.py
+# HSV thresholds for red/green pillars.
 RED_HSV_LOW_1  = (0,   100, 80)
 RED_HSV_HIGH_1 = (10,  255, 255)
 RED_HSV_LOW_2  = (170, 100, 80)
@@ -61,12 +61,23 @@ GREEN_HSV_LOW  = (40,  100, 80)
 GREEN_HSV_HIGH = (80,  255, 255)
 
 # Floor lines. Wider H tolerance than pillars because the mat colour differs
-# a bit from a solid-plastic pillar.
-ORANGE_HSV_LOW  = (5,   120, 100)
-ORANGE_HSV_HIGH = (20,  255, 255)
+# a bit from a solid-plastic pillar. Gazebo's ambient light desaturates warm
+# colours more than cool ones, so S/V floors are lower than the pillar ranges.
+ORANGE_HSV_LOW  = (3,   60,  60)
+ORANGE_HSV_HIGH = (25,  255, 255)
 BLUE_HSV_LOW    = (100, 120, 60)
 BLUE_HSV_HIGH   = (130, 255, 255)
 MIN_LINE_AREA   = 200            # pixels; lines are thin so lower than pillars
+
+# Walls — the WRO field's outer + inner walls are black on the inside face.
+# Threshold: any hue, low saturation (nearly greyscale), very low value (dark).
+# Emits one Detection2D per connected black region, mimicking what a real
+# Limelight SnapScript for wall detection would output. The bounding box's
+# bottom-center pixel is the wall's base (ground contact), which downstream
+# code projects to the ground plane for map building.
+WALL_HSV_LOW   = (0,   0,   0)
+WALL_HSV_HIGH  = (180, 60,  40)
+MIN_WALL_AREA  = 200
 
 MIN_BLOB_AREA = 300
 FRAME_ID = 'camera_optical_frame'
@@ -100,6 +111,7 @@ class SimLimelightBridge(Node):
         green_mask  = cv2.inRange(hsv, GREEN_HSV_LOW, GREEN_HSV_HIGH)
         orange_mask = cv2.inRange(hsv, ORANGE_HSV_LOW, ORANGE_HSV_HIGH)
         blue_mask   = cv2.inRange(hsv, BLUE_HSV_LOW,   BLUE_HSV_HIGH)
+        wall_mask   = cv2.inRange(hsv, WALL_HSV_LOW,   WALL_HSV_HIGH)
 
         detections: List[Detection2D] = []
         stamp = msg.header.stamp    # keep the camera capture stamp
@@ -116,6 +128,11 @@ class SimLimelightBridge(Node):
             for det in self.extract_detections(mask, min_area=MIN_LINE_AREA):
                 detections.append(self.build_line_detection(det, class_name, stamp))
 
+        # Walls — one Detection2D per connected black region. Downstream
+        # projects the bbox's bottom-center (wall base) to the ground plane.
+        for det in self.extract_detections(wall_mask, min_area=MIN_WALL_AREA):
+            detections.append(self.build_line_detection(det, 'Wall', stamp))
+
         out = Detection2DArray()
         out.header.stamp = stamp
         out.header.frame_id = FRAME_ID
@@ -126,17 +143,18 @@ class SimLimelightBridge(Node):
         # Temporary debug: once per second, report what the bridge sees.
         # Remove once /limelight/detections is reliably populated.
         # ------------------------------------------------------------
-        now_ns = self.get_clock().now().nanoseconds
-        if now_ns - self._debug_last_ns > 1_000_000_000:
-            self._debug_last_ns = now_ns
-            self.get_logger().info(
-                f'debug: encoding={msg.encoding} '
-                f'size={msg.width}x{msg.height} '
-                f'mask_px orange={int(np.count_nonzero(orange_mask))} '
-                f'blue={int(np.count_nonzero(blue_mask))} '
-                f'red={int(np.count_nonzero(red_mask))} '
-                f'green={int(np.count_nonzero(green_mask))} '
-                f'-> {len(detections)} detections')
+        # now_ns = self.get_clock().now().nanoseconds
+        # if now_ns - self._debug_last_ns > 1_000_000_000:
+        #     self._debug_last_ns = now_ns
+        #     self.get_logger().info(
+        #         f'debug: encoding={msg.encoding} '
+        #         f'size={msg.width}x{msg.height} '
+        #         f'mask_px orange={int(np.count_nonzero(orange_mask))} '
+        #         f'blue={int(np.count_nonzero(blue_mask))} '
+        #         f'red={int(np.count_nonzero(red_mask))} '
+        #         f'green={int(np.count_nonzero(green_mask))} '
+        #         f'wall={int(np.count_nonzero(wall_mask))} '
+        #         f'-> {len(detections)} detections')
 
     # ------------------------------------------------------------------------
     def extract_detections(self, mask: np.ndarray, min_area: int = MIN_BLOB_AREA

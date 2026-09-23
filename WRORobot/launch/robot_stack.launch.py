@@ -1,16 +1,14 @@
-"""Top-level real-robot stack: hardware + Nav2 + behavior.
+"""Top-level real-robot stack: hardware + Nav2.
 
 This is the hardware engineer's default entry point. Composes:
   1. WRORobot/hardware.launch.py       — drivers + robot_state_publisher
   2. wro_nav2/nav2.launch.py           — Nav2 stack (or slam.launch.py if slam:=true)
-  3. wro_behavior/behavior.launch.py   — mission nodes (off by default)
 
-Counterpart to wro_sim/sim_stack.launch.py — same nav + behavior layers,
-hardware in place of sim.
+Mission nodes live in wro_behavior/launch/wro_mission_hw.launch.py; launch
+that separately, or replace this file with it once you're settled.
 
 Args:
   slam:=true      -> use slam_toolbox instead of AMCL/map_server
-  run_goto:=true  -> fire the wro_behavior goto_pose hello-world on launch
   map:=<path>     -> map yaml to localize against (defaults to wro_nav2's placeholder)
 
 See INTERFACE.md at repo root for the topic/frame/action contract.
@@ -34,13 +32,10 @@ def generate_launch_description():
     default_map = os.path.join(pkg_wro_nav2, 'maps', 'wro_field.yaml')
 
     slam = LaunchConfiguration('slam')
-    run_goto = LaunchConfiguration('run_goto')
     params_file = LaunchConfiguration('params_file')
     map_yaml = LaunchConfiguration('map')
 
     declare_slam = DeclareLaunchArgument('slam', default_value='false')
-    declare_run_goto = DeclareLaunchArgument(
-        'run_goto', default_value='false')
     declare_params = DeclareLaunchArgument(
         'params_file', default_value=default_params)
     declare_map = DeclareLaunchArgument('map', default_value=default_map)
@@ -87,24 +82,9 @@ def generate_launch_description():
         condition=IfCondition(slam),
     )
 
-    # 3. Behavior layer.
-    behavior = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([
-            PathJoinSubstitution([
-                FindPackageShare('wro_behavior'),
-                'launch', 'behavior.launch.py',
-            ])
-        ]),
-        launch_arguments={
-            'use_sim_time': 'false',
-            'run_goto': run_goto,
-        }.items(),
-    )
-
     return LaunchDescription([
-        declare_slam, declare_run_goto, declare_params, declare_map,
+        declare_slam, declare_params, declare_map,
         hardware,
         nav2,
         slam_bringup,
-        behavior,
     ])

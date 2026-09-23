@@ -123,7 +123,7 @@ Nav2 params set `vy_max: 0.0` and `motion_model: Ackermann`.
 - Consumes only the topics/frames listed above.
 - Publishes `/cmd_vel` (via smoother) and `map → odom`.
 
-**Behavior side (`wro_behavior/behavior.launch.py`):**
+**Behavior side (`wro_behavior/launch/wro_mission_{sim,hw}.launch.py`):**
 - Consumes only the topics/actions listed above.
 - Never imports from hardware or sim packages.
 

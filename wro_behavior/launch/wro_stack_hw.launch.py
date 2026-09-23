@@ -1,12 +1,12 @@
-"""Real-hardware WRO mission launcher.
+"""Shared hardware stack — everything except the mission node.
 
-Composes:
-  - WRORobot/hardware.launch.py  — drivers + SLAM + Nav2 navigation
-  - waypoint_nav_bridge/bridge   — /waypoint (PoseStamped)  ->  Nav2 action
-  - wro_behavior/wro_mission     — unified open/obstacle mission logic
+Brings up:
+  - WRORobot/hardware.launch.py     — drivers + SLAM + Nav2 navigation
+  - waypoint_nav_bridge/bridge      — /waypoint (PoseStamped) -> Nav2 action
+  - wro_behavior/camera_map_augmenter — camera detections -> /camera_obstacles
 
-Run:
-  ros2 launch wro_behavior wro_mission_hw.launch.py
+The mission node is added by the challenge-specific launch on top of
+this (open_challenge_hw.launch.py / obstacle_challenge_hw.launch.py).
 """
 from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription
@@ -35,10 +35,10 @@ def generate_launch_description():
         parameters=[{'use_sim_time': False}],
     )
 
-    mission = Node(
+    camera_map_augmenter = Node(
         package='wro_behavior',
-        executable='wro_mission',
-        name='wro_mission',
+        executable='camera_map_augmenter',
+        name='camera_map_augmenter',
         output='screen',
         parameters=[{'use_sim_time': False}],
     )
@@ -46,5 +46,5 @@ def generate_launch_description():
     return LaunchDescription([
         hardware,
         waypoint_bridge,
-        mission,
+        camera_map_augmenter,
     ])

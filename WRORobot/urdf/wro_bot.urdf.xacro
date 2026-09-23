@@ -116,14 +116,16 @@
   <!-- ============================================================
        Frames.
 
-       base_link is the tree root. The AckermannSteering plugin publishes
-       odom -> base_link on /model/wro_bot/tf; robot_state_publisher owns
-       every other transform. We do NOT define base_footprint (it would
-       give base_link two parents once the plugin's tf is bridged).
+       base_footprint is the tree root — a virtual point on the ground
+       directly below base_link. The AckermannSteering plugin publishes
+       odom -> base_footprint on /model/wro_bot/tf; robot_state_publisher
+       owns base_footprint -> base_link and everything above.
 
-       Spawn the model with z = wheel_radius + chassis_height/2 so wheels
-       touch the ground (see wro_sim/launch/gz_sim.launch.py 'z' default).
+       Spawn the model with z = 0 — base_footprint is at ground level,
+       and the URDF lifts base_link by chassis_z internally.
        ============================================================ -->
+  <link name="base_footprint"/>
+
   <link name="base_link">
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -140,6 +142,13 @@
     </collision>
     <xacro:inertial_box mass="1.5" x="${chassis_length}" y="${chassis_width}" z="${chassis_height}"/>
   </link>
+
+  <!-- Lift base_link (chassis centre) chassis_z above the ground plane. -->
+  <joint name="base_footprint_to_base_link" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 ${chassis_z}" rpy="0 0 0"/>
+  </joint>
 
   <!-- Steering knuckles (front left, front right). -->
   <link name="front_left_wheel_steer">
@@ -286,7 +295,7 @@
       <odom_topic>/model/wro_bot/odometry</odom_topic>
       <tf_topic>/model/wro_bot/tf</tf_topic>
       <frame_id>odom</frame_id>
-      <child_frame_id>base_link</child_frame_id>
+      <child_frame_id>base_footprint</child_frame_id>
       <odom_publish_frequency>30</odom_publish_frequency>
     </plugin>
   </gazebo>
@@ -323,7 +332,7 @@
           </vertical>
         </scan>
         <range>
-          <min>0.02</min>
+          <min>0.20</min>
           <max>8.0</max>
           <resolution>0.01</resolution>
         </range>

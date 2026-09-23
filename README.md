@@ -202,22 +202,22 @@ ros launch WRORobot harwdare.launch
 ```
 A graph of the nodes and topics is available [here](hardwarenodegraph.png)
 
-To launch the control software for the open challenge in simulation use the following commands:
+To launch the full simulation stack (sim + Nav2 + SLAM + mission), use:
 ```
 source /opt/ros/jazzy/setup.bash && source install/setup.bash
-ros2 launch wro_sim sim.launch.py rviz:=true
-ros2 run wro_behavior open_challenge
-```
-A graph of the nodes and topics is available [here]().
-
-To launch the control software for the obstacle challenge in simulation use the following commands:
-```
-source /opt/ros/jazzy/setup.bash && source install/setup.bash
-ros2 launch wro_sim sim.launch.py rviz:=true
-ros2 run wro_behavior obstacle_challenge
+ros2 launch wro_behavior wro_mission_sim.launch.py
 ```
 
-When the control code is run in a simulated environment the harware's behavior is simulated, but the navigation and behavior nodes are the one used on the real environment.
+On real hardware:
+```
+ros2 launch wro_behavior wro_mission_hw.launch.py
+```
+
+Open and Obstacle challenges share a single unified mission node
+(`wro_mission`) that auto-detects which challenge it's running based
+on whether any red/green pillars are seen during the run.
+
+When the control code is run in a simulated environment the hardware's behavior is simulated, but the navigation and behavior nodes are the ones used on the real environment.
 
 To launch the full software stack use:
 ```

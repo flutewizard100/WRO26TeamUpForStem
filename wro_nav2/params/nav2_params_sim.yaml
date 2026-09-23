@@ -1,6 +1,13 @@
 # Sim-time Nav2 parameters — identical to nav2_params.yaml except:
 #   - use_sim_time: true everywhere
-#   - inflation_radius reduced to 0.2 (per plan; sim has cleaner obstacle data)
+#   - Conservative-path tuning: larger inflation, higher CostCritic
+#     weight, higher SmacPlannerHybrid cost_penalty. Nav2 prefers
+#     paths farther from walls at the cost of wider turns.
+#   - inflation_radius = 0.20 — above robot's circumscribed radius
+#     (~0.175 m) so Nav2 uses fast collision checking, while still
+#     leaving room in the 0.6 m narrow WRO corridors.
+#   - CostCritic.cost_weight = 8.0 — up from 3.81.
+#   - SmacPlannerHybrid.cost_penalty = 4.0 — up from 2.0.
 #
 # Keep this in sync with nav2_params.yaml when you change controller/planner
 # tuning. TODO(measure): once the real chassis dims are locked in, refresh
@@ -101,8 +108,11 @@ controller_server:
     general_goal_checker:
       stateful: True
       plugin: "nav2_controller::SimpleGoalChecker"
-      xy_goal_tolerance: 0.10
-      yaw_goal_tolerance: 0.20
+      # Loosened for Ackermann: the robot can't rotate in place, so
+      # hitting an exact xy + yaw at a mid-arc waypoint often costs
+      # 30+ seconds of back-and-forth. "Close enough" keeps us moving.
+      xy_goal_tolerance: 0.20
+      yaw_goal_tolerance: 0.35
 
     FollowPath:
       plugin: "nav2_mppi_controller::MPPIController"
@@ -159,7 +169,7 @@ controller_server:
       CostCritic:
         enabled: true
         cost_power: 1
-        cost_weight: 3.81
+        cost_weight: 8.0
         critical_cost: 300.0
         consider_footprint: true
         collision_cost: 1000000.0
@@ -230,7 +240,7 @@ local_costmap:
         enabled: true
         observation_sources: pillars
         pillars:
-          topic: /perception/pillar_points
+          topic: /camera_obstacles
           data_type: "PointCloud2"
           marking: true
           clearing: false
@@ -243,7 +253,7 @@ local_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 3.0
-        inflation_radius: 0.2
+        inflation_radius: 0.20
       always_send_full_costmap: true
 
 global_costmap:
@@ -261,16 +271,16 @@ global_costmap:
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
         map_subscribe_transient_local: true
-      # Pillars detected by wro_behavior/pillar_detector. observation_persistence
-      # keeps a pillar in the costmap for 30 s even after the camera loses
-      # sight of it — WRO pillars don't move, so we shouldn't unmark them
-      # every time the robot turns away.
+      # Pillars projected into the map by wro_behavior/camera_map_augmenter.
+      # observation_persistence keeps a pillar in the costmap for 30 s even
+      # after the camera loses sight of it — WRO pillars don't move, so we
+      # shouldn't unmark them every time the robot turns away.
       pillar_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: true
         observation_sources: pillars
         pillars:
-          topic: /perception/pillar_points
+          topic: /camera_obstacles
           data_type: "PointCloud2"
           marking: true
           clearing: false
@@ -283,7 +293,7 @@ global_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 3.0
-        inflation_radius: 0.2
+        inflation_radius: 0.20
       always_send_full_costmap: true
 
 map_server:
@@ -321,10 +331,10 @@ planner_server:
       analytic_expansion_ratio: 3.5
       analytic_expansion_max_length: 3.0
       minimum_turning_radius: 0.35
-      reverse_penalty: 2.0
+      reverse_penalty: 5.0
       change_penalty: 0.0
       non_straight_penalty: 1.2
-      cost_penalty: 2.0
+      cost_penalty: 4.0
       retrospective_penalty: 0.015
       lookup_table_size: 20.0
       cache_obstacle_heuristic: false

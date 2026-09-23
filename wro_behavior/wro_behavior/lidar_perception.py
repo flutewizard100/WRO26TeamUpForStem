@@ -171,15 +171,21 @@ class LidarPerception:
         self,
         pose: Tuple[float, float, float],
         center_rad: float = 0.0,
+        max_distance: Optional[float] = None,
     ) -> Optional[Tuple[float, float]]:
         """Compute (x_map, y_map) straight ahead of `pose`, at the edge
         of visible range minus safety margin. Returns None if no scan
         is available or nothing worthwhile to drive toward.
+
+        `max_distance` (metres) caps the step; when None, the class's
+        `max_forward_m` is used. Pass a smaller value for short
+        exploration hops.
         """
         front = self.median_in_arc(center_rad)
         if front is None:
             return None
-        dist = min(front, self.max_forward_m) - self.forward_margin_m
+        cap = self.max_forward_m if max_distance is None else max_distance
+        dist = min(front, cap) - self.forward_margin_m
         if dist <= 0.1:
             return None
         rx, ry, yaw = pose

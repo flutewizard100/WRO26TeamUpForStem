@@ -1,9 +1,10 @@
-"""Open Challenge hw launcher.
+"""Open Challenge sim launcher.
 
-Loads the shared hardware stack and adds the OpenMission node on top.
+Loads the shared sim stack with obstacles disabled (no pillars in the
+field) and adds the OpenMission node on top.
 
 Run:
-  ros2 launch wro_behavior open_challenge_hw.launch.py
+  ros2 launch wro_behavior open_challenge_sim.launch.py
 """
 from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription
@@ -19,9 +20,10 @@ def generate_launch_description():
             PathJoinSubstitution([
                 FindPackageShare('wro_behavior'),
                 'launch',
-                'wro_stack_hw.launch.py',
+                'wro_stack_sim.launch.py',
             ])
         ),
+        launch_arguments={'obstacles': 'false'}.items(),
     )
 
     mission = Node(
@@ -30,10 +32,8 @@ def generate_launch_description():
         name='open_mission',
         output='screen',
         parameters=[
-            {'use_sim_time': False},
-            # Physical start button on the Teensy has been unreliable —
-            # kick off automatically instead. Flip to True once the
-            # /start_button signal is trustworthy.
+            {'use_sim_time': True},
+            # Sim has no physical start button — kick off automatically.
             {'wait_for_start': False},
         ],
     )

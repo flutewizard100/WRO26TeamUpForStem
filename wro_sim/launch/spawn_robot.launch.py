@@ -20,7 +20,7 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument('x', default_value='0.0'),
         DeclareLaunchArgument('y', default_value='-1.3'),
-        DeclareLaunchArgument('z', default_value='0.05'),
+        DeclareLaunchArgument('z', default_value='0.002'),
         DeclareLaunchArgument('yaw', default_value='1.5708'),
         DeclareLaunchArgument('name', default_value='wro_bot'),
         Node(

@@ -1,17 +1,17 @@
-"""Top-level sim stack: Gazebo + Nav2 + behavior layer.
+"""Top-level sim stack: Gazebo + Nav2.
 
-This is the sim engineer's default entry point. It composes three layers:
+This is the sim engineer's default entry point. It composes:
   1. wro_sim/sim.launch.py       — Gazebo + URDF + bridge
   2. wro_nav2/nav2.launch.py     — Nav2 stack (or slam.launch.py if slam:=true)
-  3. wro_behavior/behavior.launch.py — mission nodes (off by default)
 
-The real-robot counterpart is WRORobot/launch/robot_stack.launch.py — same
-navigation + behavior layers, hardware.launch.py in place of sim.launch.py.
+Mission nodes live in wro_behavior/launch/wro_mission_sim.launch.py; launch
+that separately (or replace this file with it once you're settled).
+
+The real-robot counterpart is WRORobot/launch/robot_stack.launch.py.
 
 Args:
   slam:=true      -> use slam_toolbox instead of AMCL/map_server
   rviz:=true      -> also open RViz
-  run_goto:=true  -> fire the wro_behavior goto_pose hello-world on launch
   x, y, yaw       -> spawn pose (defaults: 0, -1.3, 1.5708)
 
 Note: wro_nav2/nav2.launch.py wraps nav2_bringup/bringup_launch.py, which
@@ -40,7 +40,6 @@ def generate_launch_description():
     slam = LaunchConfiguration('slam')
     rviz = LaunchConfiguration('rviz')
     use_sim_time = LaunchConfiguration('use_sim_time')
-    run_goto = LaunchConfiguration('run_goto')
     x_pose = LaunchConfiguration('x')
     y_pose = LaunchConfiguration('y')
     yaw_pose = LaunchConfiguration('yaw')
@@ -49,8 +48,6 @@ def generate_launch_description():
     declare_rviz = DeclareLaunchArgument('rviz', default_value='false')
     declare_use_sim_time = DeclareLaunchArgument(
         'use_sim_time', default_value='true')
-    declare_run_goto = DeclareLaunchArgument(
-        'run_goto', default_value='false')
     declare_x = DeclareLaunchArgument('x', default_value='0.0')
     declare_y = DeclareLaunchArgument('y', default_value='-1')
     declare_yaw = DeclareLaunchArgument('yaw', default_value='0.0')
@@ -103,25 +100,10 @@ def generate_launch_description():
         condition=IfCondition(slam),
     )
 
-    # 3. Behavior layer (mission-level nodes).
-    behavior = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([
-            PathJoinSubstitution([
-                FindPackageShare('wro_behavior'),
-                'launch', 'behavior.launch.py',
-            ])
-        ]),
-        launch_arguments={
-            'use_sim_time': use_sim_time,
-            'run_goto': run_goto,
-        }.items(),
-    )
-
     return LaunchDescription([
-        declare_slam, declare_rviz, declare_use_sim_time, declare_run_goto,
+        declare_slam, declare_rviz, declare_use_sim_time,
         declare_x, declare_y, declare_yaw,
         sim,
         nav2,
         slam_bringup,
-        behavior,
     ])

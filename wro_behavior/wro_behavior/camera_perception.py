@@ -16,7 +16,7 @@ Usage:
     pillar = self.cam.closest_pillar_in_map(pose)     # (cls, xm, ym) | None
 """
 import math
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 from geometry_msgs.msg import PointStamped
 from rclpy.duration import Duration
@@ -36,6 +36,21 @@ LINE_CLASSES = (LINE_ORANGE, LINE_BLUE)
 PILLAR_RED = 'Red_Pillar'
 PILLAR_GREEN = 'Green_Pillar'
 PILLAR_CLASSES = (PILLAR_RED, PILLAR_GREEN)
+
+WALL = 'Wall'
+
+# Landmark accumulator: sightings within this radius (map frame) are
+# merged into the same landmark. WRO pillars are 5x5 cm, so 0.15 m gives
+# generous slack for projection / localization noise.
+LANDMARK_MERGE_RADIUS_M = 0.15
+LANDMARK_MIN_SIGHTINGS = 3
+
+# Walls: same accumulator, but merges use a smaller radius (walls are
+# thin). Confirmation requires several sightings so a single-frame false
+# positive (shadow, dark texture, projection glitch) can't leak into
+# /camera_obstacles.
+WALL_MERGE_RADIUS_M = 0.05
+WALL_MIN_SIGHTINGS = 5
 
 
 class CameraPerception:
@@ -61,6 +76,12 @@ class CameraPerception:
         self.pillar_seen_ever = False
         self.line_detections_total = 0
 
+        # Persistent pillar landmarks in the map frame. Each entry:
+        # {'cls': str, 'x': float, 'y': float, 'n': int (sighting count)}
+        self.pillar_landmarks: List[dict] = []
+        # Same schema for wall landmarks; class_id is always 'Wall'.
+        self.wall_landmarks: List[dict] = []
+
         node.create_subscription(CameraInfo, info_topic, self._on_info, 10)
         node.create_subscription(
             Detection2DArray, detections_topic, self._on_detections, 10)
@@ -81,8 +102,12 @@ class CameraPerception:
             cls = det.results[0].hypothesis.class_id
             if cls in LINE_CLASSES:
                 self.line_detections_total += 1
-            if not self.pillar_seen_ever and cls in PILLAR_CLASSES:
-                self.pillar_detections_total += 1
+            if cls in PILLAR_CLASSES:
+                if not self.pillar_seen_ever:
+                    self.pillar_detections_total += 1
+                self._integrate_pillar_landmark(det, cls)
+            if cls == WALL:
+                self._integrate_wall_landmark(det)
 
         if (not self.pillar_seen_ever
                 and self.pillar_detections_total >= self.pillar_confirm_count):
@@ -94,18 +119,47 @@ class CameraPerception:
     # ------------------------------------------------------------------
     # High-level queries
     # ------------------------------------------------------------------
-    def detect_direction(self) -> Optional[str]:
-        """From the first line color seen: 'ccw' (orange) / 'cw' (blue).
-        Returns None if no line is visible."""
+    def detect_direction(
+        self,
+    ) -> Optional[Tuple[Tuple[str, float, float],
+                         Optional[Tuple[str, float, float]]]]:
+        """Return the two nearest visible line detections, projected to
+        the map frame, as
+            ((cls, x_map, y_map),                # closest
+             (cls, x_map, y_map) | None)         # next-closest, or None
+        Returns None if no line was detected in the current frame or if
+        the TF projection to map failed for every detection."""
+        closest = None
+        closest_dist = float('inf')
+        next_closest = None
+        next_closest_dist = float('inf')
+
         for det in self.latest_detections:
             if not det.results:
                 continue
             cls = det.results[0].hypothesis.class_id
-            if cls == LINE_ORANGE:
-                return 'ccw'
-            if cls == LINE_BLUE:
-                return 'cw'
-        return None
+            if cls not in LINE_CLASSES:
+                continue
+            body = self.pixel_to_body(
+                det.bbox.center.position.x,
+                det.bbox.center.position.y,
+            )
+            if body is None:
+                continue
+            world = self._body_to_map(*body)
+            if world is None:
+                continue
+            d = math.hypot(body[0], body[1])       # dist from robot to line
+            if d < closest_dist:
+                next_closest_dist, next_closest = closest_dist, closest
+                closest_dist, closest = d, (cls, world[0], world[1])
+            elif d < next_closest_dist:
+                next_closest_dist, next_closest = d, (cls, world[0], world[1])
+
+        if closest is None:
+            return None
+        return closest, next_closest
+
 
     def closest_pillar_in_map(
         self,
@@ -139,10 +193,122 @@ class CameraPerception:
         return best
 
     # ------------------------------------------------------------------
+    # Pillar landmarks (accumulated over time in the map frame)
+    # ------------------------------------------------------------------
+    def _integrate_pillar_landmark(self, det, cls: str) -> None:
+        """Project one pillar detection into map frame and merge it into
+        the persistent landmark list. No-op if TF isn't ready."""
+        body = self.pixel_to_body(
+            det.bbox.center.position.x,
+            det.bbox.center.position.y,
+        )
+        if body is None:
+            return
+        world = self._body_to_map(*body)
+        if world is None:
+            return
+        x, y = world
+
+        best_idx: Optional[int] = None
+        best_d = LANDMARK_MERGE_RADIUS_M
+        for i, lm in enumerate(self.pillar_landmarks):
+            if lm['cls'] != cls:
+                continue
+            d = math.hypot(lm['x'] - x, lm['y'] - y)
+            if d < best_d:
+                best_d, best_idx = d, i
+
+        if best_idx is None:
+            self.pillar_landmarks.append(
+                {'cls': cls, 'x': x, 'y': y, 'n': 1})
+        else:
+            lm = self.pillar_landmarks[best_idx]
+            n = lm['n']
+            lm['x'] = (lm['x'] * n + x) / (n + 1)
+            lm['y'] = (lm['y'] * n + y) / (n + 1)
+            lm['n'] = n + 1
+
+    def confirmed_pillar_landmarks(
+        self,
+        min_sightings: int = LANDMARK_MIN_SIGHTINGS,
+    ) -> List[Tuple[str, float, float]]:
+        """Landmarks seen at least `min_sightings` times, as
+        (class, x_map, y_map)."""
+        return [(lm['cls'], lm['x'], lm['y'])
+                for lm in self.pillar_landmarks
+                if lm['n'] >= min_sightings]
+
+    def closest_pillar_landmark(
+        self,
+        robot_pose: Tuple[float, float, float],
+        min_sightings: int = LANDMARK_MIN_SIGHTINGS,
+    ) -> Optional[Tuple[str, float, float]]:
+        """Closest confirmed landmark to the robot. Prefers the landmark
+        list over `closest_pillar_in_map` because it survives frames
+        where the pillar drops out of view."""
+        rx, ry, _ = robot_pose
+        best = None
+        best_d = float('inf')
+        for cls, x, y in self.confirmed_pillar_landmarks(min_sightings):
+            d = math.hypot(x - rx, y - ry)
+            if d < best_d:
+                best_d, best = d, (cls, x, y)
+        return best
+
+    # ------------------------------------------------------------------
+    # Wall landmarks (accumulated over time in the map frame)
+    # ------------------------------------------------------------------
+    def _integrate_wall_landmark(self, det) -> None:
+        """Project the bbox's bottom-center (wall base = where the wall
+        meets the floor) into the map frame and merge into the wall
+        landmark list. No-op if TF isn't ready."""
+        bx = det.bbox.center.position.x
+        by = det.bbox.center.position.y + det.bbox.size_y / 2.0
+        body = self.pixel_to_body(bx, by)
+        if body is None:
+            return
+        world = self._body_to_map(*body)
+        if world is None:
+            return
+        x, y = world
+
+        best_idx: Optional[int] = None
+        best_d = WALL_MERGE_RADIUS_M
+        for i, lm in enumerate(self.wall_landmarks):
+            d = math.hypot(lm['x'] - x, lm['y'] - y)
+            if d < best_d:
+                best_d, best_idx = d, i
+
+        if best_idx is None:
+            self.wall_landmarks.append(
+                {'cls': WALL, 'x': x, 'y': y, 'n': 1})
+        else:
+            lm = self.wall_landmarks[best_idx]
+            n = lm['n']
+            lm['x'] = (lm['x'] * n + x) / (n + 1)
+            lm['y'] = (lm['y'] * n + y) / (n + 1)
+            lm['n'] = n + 1
+
+    def confirmed_wall_landmarks(
+        self,
+        min_sightings: int = WALL_MIN_SIGHTINGS,
+    ) -> List[Tuple[float, float]]:
+        """Wall landmarks seen at least `min_sightings` times, as
+        (x_map, y_map)."""
+        return [(lm['x'], lm['y'])
+                for lm in self.wall_landmarks
+                if lm['n'] >= min_sightings]
+
+
+    
+    # ------------------------------------------------------------------
     # Frame conversions
     # ------------------------------------------------------------------
     def pixel_to_body(self, px: float, py: float) -> Optional[Tuple[float, float]]:
-        """Project image pixel onto ground plane (z=0) in base_link frame."""
+        """Project image pixel onto the ground plane (z=0 in base_footprint
+        frame — that's the actual ground; base_link sits chassis_z above it).
+        Returns (x, y) in base_footprint frame, which has the same xy as
+        base_link, so downstream body-frame code is unaffected."""
         if not self.have_info:
             return None
         ray = self.cam_model.projectPixelTo3dRay((px, py))
@@ -159,9 +325,9 @@ class CameraPerception:
 
         try:
             far_body = self.tf_buffer.transform(
-                far, 'base_link', Duration(seconds=0.1))
+                far, 'base_footprint', Duration(seconds=0.1))
             origin_body = self.tf_buffer.transform(
-                origin, 'base_link', Duration(seconds=0.1))
+                origin, 'base_footprint', Duration(seconds=0.1))
         except tf2_ros.TransformException:
             return None
 

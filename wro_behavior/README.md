@@ -1,7 +1,7 @@
 # wro_behavior
 
-High-level behavior for the WRO robot. This is where mission logic, state
-machines, custom BT nodes, waypoint sequences, and vision reactions live.
+High-level behavior for the WRO robot. Mission logic, state machines, and
+perception helpers live here.
 
 ## Contract
 
@@ -12,26 +12,38 @@ answer is a new topic/action/service in the interface, not a direct import.
 
 ## Nodes
 
-- `goto_pose` — hello-world NavigateToPose action client. Sends one goal in
-  the `map` frame, prints feedback and result. Use it as a template for
-  new mission nodes; not real mission logic.
+- `wro_mission` — unified Open + Obstacle Challenge mission node. State
+  machine, direction detection, waypoint dispatch, first-corner guard,
+  end-of-race handling.
+- `camera_map_augmenter` — subscribes to `/limelight/detections`, projects
+  confirmed pillar landmarks into the map frame, publishes them as
+  `PointCloud2` on `/camera_obstacles` for Nav2's obstacle layer.
+- `sim_limelight_bridge` — sim-only substitute for the real Limelight
+  bridge. HSV-detects pillars and lines from `/camera` and publishes
+  `vision_msgs/Detection2DArray` on `/limelight/detections`.
+
+## Perception helpers (imported by the nodes above)
+
+- `lidar_perception.LidarPerception` — `/scan` subscription, arc queries,
+  forward-edge waypoint generation.
+- `camera_perception.CameraPerception` — `/camera_info` + `/limelight/detections`
+  subscriptions, pillar/line semantics, pixel → map projection, landmark
+  accumulator.
 
 ## Run
 
-Against the sim:
+Sim, full stack (Gazebo + Nav2 + SLAM + mission):
 ```bash
-ros2 launch wro_sim sim_stack.launch.py rviz:=true
-ros2 launch wro_behavior behavior.launch.py \
-  run_goto:=true goal_x:=1.0 goal_y:=0.5 use_sim_time:=true
+ros2 launch wro_behavior wro_mission_sim.launch.py
 ```
 
-Against the real robot:
+Real hardware:
 ```bash
-ros2 launch WRORobot robot_stack.launch.py
-ros2 launch wro_behavior behavior.launch.py run_goto:=true goal_x:=1.0
+ros2 launch wro_behavior wro_mission_hw.launch.py
 ```
 
-Or fire a goal by hand without this package running:
+Trigger the start button from a terminal (equivalent to pressing the
+force sensor):
 ```bash
-ros2 run wro_behavior goto_pose --ros-args -p x:=1.0 -p y:=0.5
+ros2 topic pub --once /start_button std_msgs/msg/Bool "{data: true}"
 ```

@@ -24,17 +24,10 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'goto_pose = wro_behavior.goto_pose:main',
-            'pillar_detector = wro_behavior.pillar_detector:main',
-            'open_challenge = wro_behavior.open_challenge:main',
-            'open_challenge_template = wro_behavior.open_challenge_template:main',
-            'open_challenge_template_lidar_only = wro_behavior.open_challenge_template_lidar_only:main',
-            'new_open_challenge = wro_behavior.new_open_challenge:main',
-            'obstacle_challenge_template = wro_behavior.obstacle_challenge_template:main',
-            'obstacle_challenge_skeleton = wro_behavior.obstacle_challenge_skeleton:main',
             'sim_limelight_bridge = wro_behavior.sim_limelight_bridge:main',
-            'hardware_test = wro_behavior.hardware_test:main',
-            'wro_mission = wro_behavior.wro_mission:main',
+            'open_mission = wro_behavior.open_mission:main',
+            'obstacle_mission = wro_behavior.obstacle_mission:main',
+            'camera_map_augmenter = wro_behavior.camera_map_augmenter:main',
         ],
     },
 )
