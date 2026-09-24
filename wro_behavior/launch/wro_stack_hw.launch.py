@@ -7,16 +7,32 @@ Brings up:
 
 The mission node is added by the challenge-specific launch on top of
 this (open_challenge_hw.launch.py / obstacle_challenge_hw.launch.py).
+
+Args:
+  params_file — Nav2 params yaml (default: wro_nav2/params/nav2_params.yaml).
+                open_challenge_hw passes a RewrittenYaml overlay built
+                from wro_behavior/config/open_tuning.yaml.
 """
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import PathJoinSubstitution
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
+    params_file = LaunchConfiguration('params_file')
+
+    declare_params_file = DeclareLaunchArgument(
+        'params_file',
+        default_value=PathJoinSubstitution([
+            FindPackageShare('wro_nav2'),
+            'params',
+            'nav2_params.yaml',
+        ]),
+    )
+
     hardware = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution([
@@ -25,6 +41,7 @@ def generate_launch_description():
                 'hardware.launch.py',
             ])
         ),
+        launch_arguments={'params_file': params_file}.items(),
     )
 
     waypoint_bridge = Node(
@@ -44,6 +61,7 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
+        declare_params_file,
         hardware,
         waypoint_bridge,
         camera_map_augmenter,

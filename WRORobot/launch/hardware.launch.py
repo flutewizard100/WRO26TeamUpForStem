@@ -42,8 +42,9 @@ import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 import xacro
@@ -67,6 +68,20 @@ def _config_path(basename):
 
 
 def generate_launch_description():
+    # Nav2 params file — forwarded to slam.launch.py. Default is the
+    # base nav2_params.yaml; the open_challenge_hw launcher overrides
+    # this with a RewrittenYaml that overlays tunables from
+    # wro_behavior/config/open_tuning.yaml.
+    default_nav2_params = os.path.join(
+        get_package_share_directory('wro_nav2'),
+        'params', 'nav2_params.yaml',
+    )
+    declare_params_file = DeclareLaunchArgument(
+        'params_file',
+        default_value=default_nav2_params,
+        description='Nav2 params yaml (or RewrittenYaml source).',
+    )
+    params_file = LaunchConfiguration('params_file')
 
     lidar_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -85,7 +100,8 @@ def generate_launch_description():
                 'launch',
                 'slam.launch.py'
             )
-        )
+        ),
+        launch_arguments={'params_file': params_file}.items(),
     )
 
     rsp = Node(
@@ -100,6 +116,7 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
+        declare_params_file,
         lidar_launch,
         rsp,
         slam_launch,

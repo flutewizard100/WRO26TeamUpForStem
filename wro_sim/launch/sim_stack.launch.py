@@ -12,7 +12,7 @@ The real-robot counterpart is WRORobot/launch/robot_stack.launch.py.
 Args:
   slam:=true      -> use slam_toolbox instead of AMCL/map_server
   rviz:=true      -> also open RViz
-  x, y, yaw       -> spawn pose (defaults: 0, -1.3, 1.5708)
+  x, y, yaw       -> spawn pose (defaults: 0, 1.20, 3.14159 — north corridor, facing west)
 
 Note: wro_nav2/nav2.launch.py wraps nav2_bringup/bringup_launch.py, which
 already starts AMCL + map_server. wro_nav2/localization.launch.py is a

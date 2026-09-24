@@ -19,9 +19,9 @@ def generate_launch_description():
 
     return LaunchDescription([
         DeclareLaunchArgument('x', default_value='0.0'),
-        DeclareLaunchArgument('y', default_value='-1.3'),
+        DeclareLaunchArgument('y', default_value='1.20'),
         DeclareLaunchArgument('z', default_value='0.002'),
-        DeclareLaunchArgument('yaw', default_value='1.5708'),
+        DeclareLaunchArgument('yaw', default_value='3.14159'),
         DeclareLaunchArgument('name', default_value='wro_bot'),
         Node(
             package='ros_gz_sim',

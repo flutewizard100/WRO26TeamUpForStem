@@ -1,0 +1,198 @@
+# =============================================================================
+# WRO Open Challenge — single-file tuning
+# =============================================================================
+# All of the knobs we routinely tune live here. Edit this file, relaunch, no
+# rebuild needed (colcon --symlink-install copies YAMLs on rebuild, but
+# `--symlink-install` also symlinks `share/` on many setups; either way,
+# `colcon build --packages-select wro_behavior --symlink-install` refreshes it
+# without touching Python).
+#
+# Two logical sections:
+#
+#   1. `open_mission.ros__parameters` — read directly by the OpenMission node
+#      as ROS params at startup.
+#
+#   2. `nav2_overrides` — flat scalars that the open_challenge launch files
+#      apply on top of the base Nav2 params (nav2_params_sim.yaml for sim,
+#      nav2_params.yaml for hardware) via nav2_common's RewrittenYaml. All
+#      occurrences of a matching key in the base Nav2 yaml get replaced —
+#      keys here must be uniquely named in the base yaml (they are, today).
+#
+# Any Nav2 knob NOT in `nav2_overrides` keeps its base-yaml value.
+# =============================================================================
+
+
+open_mission:
+  ros__parameters:
+
+    # -----------------------------------------------------------------
+    # Startup
+    # -----------------------------------------------------------------
+
+    # If True, the mission stays in WAITING_FOR_START until /start_button
+    # goes high. Set False (default in the sim + hw launches) to kick off
+    # immediately once Nav2 is active — the Teensy start-button wiring
+    # has been unreliable.
+    wait_for_start: false
+
+
+    # -----------------------------------------------------------------
+    # Corner trigger — lidar-based inner-obstacle-corner detection
+    # -----------------------------------------------------------------
+    # A corner fires when both of these are true:
+    #   front_lidar_distance          <  inner_corner_front_max_m
+    #   diag_range(turn_dir · 45°)    >  side_range(turn_dir · 90°) + inner_corner_diag_margin_m
+    #
+    # The front gate keeps us from triggering while the wall ahead is
+    # still far. The diagonal-vs-side margin is the "corner is visible"
+    # signal: the diagonal ray reaches past the inner obstacle's convex
+    # corner into the next lane while the side ray still hits the wall.
+
+    # Robot must be within this range of the wall ahead before the
+    # trigger is even considered. Bigger → corner fires earlier
+    # (further out); smaller → corner fires later (closer in).
+    inner_corner_front_max_m: 1.5
+
+    # How much clearer the diagonal must be vs. the side reading to
+    # count as "inner corner visible". Bigger → stricter, waits longer
+    # after the corner has opened up; smaller → fires as soon as the
+    # opening starts to appear (can be jumpy on partial occlusions).
+    inner_corner_diag_margin_m: 0.35
+
+
+    # -----------------------------------------------------------------
+    # Corner waypoint geometry — distances FROM the estimated corner
+    # -----------------------------------------------------------------
+    # When the trigger fires, the OpenMission node estimates the inner
+    # obstacle's corner point in map frame (from the lidar reading on
+    # the turn-side diagonal), then places the goal at:
+    #
+    #     waypoint = corner_point
+    #              + corner_lead_m    · new_heading_unit_vector
+    #              + corner_lateral_m · safe_side_unit_vector
+    #
+    # `safe_side` = perpendicular to the new heading, on the outer-wall
+    # side (opposite the turn direction).
+    #
+    # Nav2's SmacPlannerHybrid + Ackermann MPPI plans the whole arc
+    # from the current pose to that waypoint; we only pick the
+    # endpoint.
+
+    # Metres past the corner along the NEW cardinal heading. Bigger →
+    # goal sits deeper into the next lane and the arc has more room to
+    # smooth out; smaller → goal is closer to the corner and Nav2 is
+    # forced to arc tighter. Typical range: 0.6-1.5 m.
+    corner_lead_m: 1.20
+
+    # Metres perpendicular to the new heading on the SAFE side (away
+    # from the inner obstacle, toward the outer/far wall). Positive
+    # pushes the exit waypoint outward — useful if the robot clips
+    # the inner wall on exit or if you want more room for the arc to
+    # smooth out. Zero leaves it on the corner-aligned line. Rarely
+    # needs to be more than ~0.3 m.
+    corner_lateral_m: 0.25
+
+
+    # -----------------------------------------------------------------
+    # Straight-line + fallback behaviours (rarely tuned)
+    # -----------------------------------------------------------------
+
+    # Front-lidar threshold used by both:
+    #   - the no-lines-in-view lidar-only corner fallback
+    #   - the first-corner turn_dir guard (pick left/right by clearance
+    #     when no lines have ever been detected)
+    # If the robot is trying to corner too eagerly on approach, lower
+    # this; if it misses the first corner entirely without seeing a
+    # line, raise it.
+    first_corner_front_m: 0.80
+
+    # When no camera lines are visible AND lidar-only corner isn't
+    # firing, publish a short forward hop of this length so the robot
+    # keeps making progress until a line re-appears. Short → tight
+    # dispatch loop; long → fewer publishes but more risk of driving
+    # blind past a corner.
+    exploration_step_m: 0.4
+
+
+    # -----------------------------------------------------------------
+    # Corner K-turn recovery
+    # -----------------------------------------------------------------
+    # When Nav2 reports a corner waypoint as unreachable
+    # (/waypoint_arrived == False), the mission node backs the robot
+    # up along its current heading, then re-dispatches the SAME corner
+    # target. This gives Nav2's Ackermann planner more chord length
+    # for its arc — effectively a robot-scale 2-point / 3-point turn.
+
+    # Metres to reverse in a straight line before re-attempting the
+    # corner. Bigger → more chord length for Nav2's next arc attempt,
+    # but also more time lost and more risk of hitting whatever is
+    # behind. Should not exceed the corridor length behind the
+    # trigger point.
+    corner_recovery_backup_m: 0.35
+
+    # How many times to attempt the backup+retry cycle before giving
+    # up and continuing the mission from the failed corner as-is.
+    # 0 disables recovery entirely (original fail-and-recompute
+    # behavior). 1 or 2 is a reasonable ceiling — beyond that, the
+    # corner geometry likely isn't feasible for the robot at all.
+    corner_recovery_max_retries: 2
+
+
+# =============================================================================
+# Nav2 param overrides — merged into the base Nav2 yaml at launch time.
+# =============================================================================
+# The open_challenge launch files load the base yaml
+# (wro_nav2/params/nav2_params_sim.yaml or nav2_params.yaml), overlay the
+# entries below via a dotted-path deep merge, and write the merged result to
+# /tmp before Nav2 reads it. Keys use their full path from the top of the base
+# yaml so we don't accidentally clobber a same-named key elsewhere (e.g.
+# `cost_weight` appears in every MPPI critic).
+#
+# Any key not listed here keeps its base-yaml value.
+
+nav2_overrides:
+
+  # -------------------------------------------------------------------
+  # Costmap inflation (applied to BOTH local and global costmap)
+  # -------------------------------------------------------------------
+  # Radius (m) of the inflated obstacle halo. Higher → paths stay
+  # further from walls (safer, wider corners); lower → tighter
+  # clearance and shorter paths, but more risk of clipping. Must be
+  # ≥ the robot's circumscribed radius (~0.175 m) for Nav2's fast
+  # collision checking. WRO's 0.6 m narrow corridors set the
+  # practical ceiling around 0.22-0.25 m.
+  local_costmap.local_costmap.ros__parameters.inflation_layer.inflation_radius: 0.20
+  global_costmap.global_costmap.ros__parameters.inflation_layer.inflation_radius: 0.20
+
+
+  # -------------------------------------------------------------------
+  # SmacPlannerHybrid (global planner)
+  # -------------------------------------------------------------------
+
+  # Multiplier on the traversal cost of high-cost cells. Higher → the
+  # planner detours further to avoid the inflated halo; lower → it's
+  # willing to skim closer to walls to keep the path short. Works in
+  # concert with `inflation_radius` — if you raise inflation, you may
+  # need to raise cost_penalty too so the planner actually cares.
+  planner_server.ros__parameters.GridBased.cost_penalty: 4.0
+
+  # Extra cost per reverse motion primitive in Reeds-Shepp planning.
+  # Higher → the planner strongly prefers forward Ackermann arcs
+  # over K-turn maneuvers (which the physical robot does badly);
+  # lower → the planner is more willing to back up. Sim uses
+  # REEDS_SHEPP so this bites; hw default is DUBIN (no reversal,
+  # ignored).
+  planner_server.ros__parameters.GridBased.reverse_penalty: 5.0
+
+
+  # -------------------------------------------------------------------
+  # MPPI controller — CostCritic weight
+  # -------------------------------------------------------------------
+  # Critic weight for staying away from high-cost costmap cells.
+  # Higher → the controller strongly penalizes trajectories that
+  # sample near obstacles (smoother, wider execution of the plan);
+  # lower → the controller cares more about following the plan
+  # exactly even if the plan brushes the inflation halo. Pair with
+  # `inflation_radius` and `cost_penalty` when tuning corner
+  # behavior.
+  controller_server.ros__parameters.FollowPath.CostCritic.cost_weight: 8.0

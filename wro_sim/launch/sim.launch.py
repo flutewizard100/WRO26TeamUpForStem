@@ -81,7 +81,8 @@ def generate_launch_description():
         'use_sim_time', default_value='true')
     declare_rviz = DeclareLaunchArgument('rviz', default_value='false')
     declare_x = DeclareLaunchArgument('x', default_value='0.0')
-    declare_y = DeclareLaunchArgument('y', default_value='1.0')
+    # Centered in the 0.60 m north corridor: y ∈ [0.90, 1.50], center 1.20.
+    declare_y = DeclareLaunchArgument('y', default_value='1.20')
     declare_z = DeclareLaunchArgument('z', default_value='0.02')
     declare_yaw = DeclareLaunchArgument('yaw', default_value='3.14159')
 

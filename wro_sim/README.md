@@ -86,7 +86,7 @@ The saved map's origin is anchored at the robot's pose when slam_toolbox
 was activated, NOT Gazebo's world origin. When you later reload the map
 with Nav2 (`slam:=false`), use RViz's 2D Pose Estimate to set the
 initial pose to `(0, 0)` yaw `0` in the map frame — that places the
-robot at Gazebo world `(0, -1.3)` yaw `1.5708`.
+robot at Gazebo world `(0, 1.20)` yaw `3.14159`.
 
 ## Topic bridge
 
@@ -124,8 +124,9 @@ When you update any of these, also update `wro_nav2/params/nav2_params*.yaml`:
   `AckermannConstraints.min_turning_r`
 - Footprint polygon in both costmaps
 
-Sim spawn pose defaults live in `launch/sim.launch.py` (`x=0`, `y=-1.3`,
-`z=0.103`, `yaw=1.5708`). Adjust to your WRO field start box.
+Sim spawn pose defaults live in `launch/sim.launch.py` (`x=0`, `y=1.20`,
+`z=0.103`, `yaw=3.14159` — centered in the narrow (0.60 m) north
+corridor, facing west). Adjust to your WRO field start box.
 
 **Do not lower the default `z`.** `z = wheel_radius + chassis_height/2`
 (0.033 + 0.070 = 0.103) is the resting height with wheels on the ground.

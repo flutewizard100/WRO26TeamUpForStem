@@ -58,13 +58,15 @@ amcl:
     # activation times out waiting for the `map` frame and the whole
     # navigation lifecycle group aborts.
     # Values match the sim spawn pose (see wro_sim/launch/sim.launch.py:
-    #   x=0, y=-1.3, yaw=1.5708). Update both together if you move the spawn.
+    #   x=0, y=1.20, yaw=3.14159 — robot centered in the north
+    #   corridor of the narrow (0.60 m) map, facing west). Update
+    #   both together if you move the spawn.
     set_initial_pose: true
     initial_pose:
       x: 0.0
-      y: -1.3
+      y: 1.20
       z: 0.0
-      yaw: 1.5708
+      yaw: 3.14159
 
 bt_navigator:
   ros__parameters:
