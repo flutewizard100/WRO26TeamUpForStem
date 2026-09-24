@@ -33,6 +33,9 @@ std_msgs__msg__Int32 motor_msg;
 rcl_subscription_t direction_subscriber;
 geometry_msgs__msg__Twist direction_msg; 
 
+rcl_publisher_t button_publisher;
+std_msgs__msg__Bool button_msg;
+
 rclc_executor_t executor;
 rclc_support_t support;
 rcl_allocator_t allocator;
@@ -173,11 +176,25 @@ void setup() {
   ));
 
 
+  rclc_node_init_default(
+      &node,
+      "button_node",
+      "",
+      &support
+  );
+
+  rclc_publisher_init_default(
+      &button_publisher,
+      &node,
+      ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Bool),
+      "/button"
+  );
+
   RCCHECK(rclc_executor_init(&executor, &support.context, 4, &allocator));
   RCCHECK(rclc_executor_add_subscription(&executor, &servo_subscriber, &servo_msg, &servo_callback, ON_NEW_DATA));
   RCCHECK(rclc_executor_add_subscription(&executor, &motor_subscriber, &motor_msg, &motor_callback, ON_NEW_DATA));
   RCCHECK(rclc_executor_add_subscription(&executor, &direction_subscriber, &direction_msg, &keyboard_callback, ON_NEW_DATA));
-
+  
 }
 
 void loop() {
@@ -188,4 +205,13 @@ void loop() {
   // Updates instantly based on your Python `try/finally` logic safely driving it
   myServo.write(servo_angle);
   ESC.writeMicroseconds(target_speed);
+  bool pressed = (digitalRead(BUTTON_PIN) == LOW);
+
+  button_msg.data = pressed;
+
+  rcl_publish(
+      &button_publisher,
+      &button_msg,
+      NULL
+  );
 }
