@@ -67,7 +67,7 @@ bt_navigator:
 lifecycle_manager_slam:
   ros__parameters:
     autostart: true
-    bond_timeout: 30.0
+    bond_timeout: 0.0
     node_names: ["slam_toolbox"]
 
 # Disable bond monitoring for Nav2's own lifecycle manager. Nav2's
