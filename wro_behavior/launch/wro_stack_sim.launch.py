@@ -13,6 +13,8 @@ this (open_challenge_sim.launch.py / obstacle_challenge_sim.launch.py).
 Args:
   obstacles      — sim world flag: true loads the pillars, false skips them.
   params_file    — Nav2 params yaml (default: wro_nav2/params/nav2_params_sim.yaml).
+  rviz           — true to launch RViz2 alongside the sim (default false).
+  gazebo_gui     — true to run Gazebo with GUI, false for headless (default false).
 """
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
@@ -25,6 +27,8 @@ from launch_ros.substitutions import FindPackageShare
 def generate_launch_description():
     params_file = LaunchConfiguration('params_file')
     obstacles = LaunchConfiguration('obstacles')
+    rviz = LaunchConfiguration('rviz')
+    gazebo_gui = LaunchConfiguration('gazebo_gui')
 
     declare_params_file = DeclareLaunchArgument(
         'params_file',
@@ -39,6 +43,16 @@ def generate_launch_description():
         default_value='true',
         description='true = load pillars in sim world. false = plain field.',
     )
+    declare_rviz = DeclareLaunchArgument(
+        'rviz',
+        default_value='false',
+        description='Launch RViz2 alongside the sim.',
+    )
+    declare_gazebo_gui = DeclareLaunchArgument(
+        'gazebo_gui',
+        default_value='false',
+        description='Run Gazebo with the interactive GUI (default headless).',
+    )
 
     simulator = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -49,7 +63,8 @@ def generate_launch_description():
             ])
         ),
         launch_arguments={
-            'rviz': 'true',
+            'rviz': rviz,
+            'gazebo_gui': gazebo_gui,
             'obstacles': obstacles,
         }.items(),
     )
@@ -96,6 +111,8 @@ def generate_launch_description():
     return LaunchDescription([
         declare_params_file,
         declare_obstacles,
+        declare_rviz,
+        declare_gazebo_gui,
         simulator,
         navigation,
         waypoint_bridge,

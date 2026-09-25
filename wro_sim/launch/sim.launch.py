@@ -18,7 +18,7 @@ from launch.actions import (
     IncludeLaunchDescription,
     OpaqueFunction,
 )
-from launch.conditions import IfCondition
+from launch.conditions import IfCondition, UnlessCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, PythonExpression
 from launch_ros.actions import Node
@@ -65,6 +65,7 @@ def generate_launch_description():
 
     use_sim_time = LaunchConfiguration('use_sim_time')
     rviz = LaunchConfiguration('rviz')
+    gazebo_gui = LaunchConfiguration('gazebo_gui')
     x_pose = LaunchConfiguration('x')
     y_pose = LaunchConfiguration('y')
     z_pose = LaunchConfiguration('z')
@@ -79,15 +80,23 @@ def generate_launch_description():
     )
     declare_use_sim_time = DeclareLaunchArgument(
         'use_sim_time', default_value='true')
-    declare_rviz = DeclareLaunchArgument('rviz', default_value='false')
+    declare_rviz = DeclareLaunchArgument(
+        'rviz', default_value='false',
+        description='Launch RViz2 alongside the sim.')
+    declare_gazebo_gui = DeclareLaunchArgument(
+        'gazebo_gui', default_value='false',
+        description='Run Gazebo with the interactive GUI. Default is '
+                    'server-only (headless) — saves ~2-4s of startup.')
     declare_x = DeclareLaunchArgument('x', default_value='0.0')
     # Centered in the 0.60 m north corridor: y ∈ [0.90, 1.50], center 1.20.
     declare_y = DeclareLaunchArgument('y', default_value='1.20')
     declare_z = DeclareLaunchArgument('z', default_value='0.02')
     declare_yaw = DeclareLaunchArgument('yaw', default_value='3.14159')
 
-    # Start gz sim with our world.
-    gz_sim = IncludeLaunchDescription(
+    # Start gz sim with our world. Two variants — one runs, based on
+    # the gazebo_gui argument. `-s` = server-only (no GUI, faster
+    # startup); omitting it launches the full Ignition viewport.
+    gz_sim_headless = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
             PathJoinSubstitution([
                 FindPackageShare('ros_gz_sim'),
@@ -97,6 +106,19 @@ def generate_launch_description():
         launch_arguments={
             'gz_args': [world, ' -s -r -v 3'],
         }.items(),
+        condition=UnlessCondition(gazebo_gui),
+    )
+    gz_sim_gui = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource([
+            PathJoinSubstitution([
+                FindPackageShare('ros_gz_sim'),
+                'launch', 'gz_sim.launch.py',
+            ])
+        ]),
+        launch_arguments={
+            'gz_args': [world, ' -r -v 3'],
+        }.items(),
+        condition=IfCondition(gazebo_gui),
     )
 
     # robot_state_publisher (needs xacro-processed URDF at launch time).
@@ -176,8 +198,10 @@ def generate_launch_description():
         declare_obstacles,
         declare_use_sim_time,
         declare_rviz,
+        declare_gazebo_gui,
         declare_x, declare_y, declare_z, declare_yaw,
-        gz_sim,
+        gz_sim_headless,
+        gz_sim_gui,
         rsp,
         spawn,
         bridge,

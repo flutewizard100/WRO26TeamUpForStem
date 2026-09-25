@@ -41,66 +41,17 @@ CORNERS_PER_LAP = 4
 class State(IntEnum):
     NOT_READY = 0             # startup gates not yet cleared
     WAITING_FOR_START = 1     # Nav2 active, waiting for start button
-    FIRST_CORNER = 2               # following waypoints
-    FIRST_LAP = 3
-    RETURNING_HOME = 4        # endgame — driving back to (0, 0)
-    DONE = 5                  # mission complete, robot stopped
-
-
-
-class FirstKnownLocation:
-    """Lidar + pose snapshot."""
-    pose:  Tuple[float, float, float]           # (x, y, yaw) in map frame
-    front: Optional[float]                      # metres to wall ahead
-    left:  Optional[float]                      # metres to wall on +Y side
-    right: Optional[float]                      # metres to wall on -Y side
-    angle_of_longest_distance: Optional[float]
-
+    FIND_FIRST_CORNER = 2
+    FIRST_CORNER = 3   
+    FIND_NEXT_CORNER = 4
+    NEXT_CORNER = 5
+    NEXT_LAPS = 6
+    RETURNING_HOME = 7        # endgame — driving back to (0, 0)
+    DONE = 8                  # mission complete, robot stopped
 
 class OpenMission(Node):
     def __init__(self):
         super().__init__('open_mission')
-
-
-        # ============================================================
-        # Parameters — see wro_behavior/config/open_tuning.yaml for
-        # the tuned values and per-knob documentation.
-        # ============================================================
-        self.declare_parameter('wait_for_start', True)
-
-        # # Corner trigger.
-        # self.declare_parameter('inner_corner_front_max_m', 1.5)
-        # self.declare_parameter('inner_corner_diag_margin_m', 0.35)
-
-        # # Corner waypoint geometry (distances from the estimated corner).
-        # self.declare_parameter('corner_lead_m', 0.80)
-        # self.declare_parameter('corner_lateral_m', 0.00)
-
-        # # Straight-line + fallback behaviours.
-        # self.declare_parameter('first_corner_front_m', 0.80)
-        # self.declare_parameter('exploration_step_m', 0.40)
-
-        # # Corner K-turn recovery.
-        # self.declare_parameter('corner_recovery_backup_m', 0.35)
-        # self.declare_parameter('corner_recovery_max_retries', 2)
-
-        # # Snapshot tunables into instance attributes for fast access.
-        # self.inner_corner_front_max_m = float(
-        #     self.get_parameter('inner_corner_front_max_m').value)
-        # self.inner_corner_diag_margin_m = float(
-        #     self.get_parameter('inner_corner_diag_margin_m').value)
-        # self.corner_lead_m = float(
-        #     self.get_parameter('corner_lead_m').value)
-        # self.corner_lateral_m = float(
-        #     self.get_parameter('corner_lateral_m').value)
-        # self.first_corner_front_m = float(
-        #     self.get_parameter('first_corner_front_m').value)
-        # self.exploration_step_m = float(
-        #     self.get_parameter('exploration_step_m').value)
-        # self.corner_recovery_backup_m = float(
-        #     self.get_parameter('corner_recovery_backup_m').value)
-        # self.corner_recovery_max_retries = int(
-        #     self.get_parameter('corner_recovery_max_retries').value)
 
         # ============================================================
         # State machine
@@ -117,23 +68,11 @@ class OpenMission(Node):
         self.last_closest_line = None
         # +1 = left/CCW, -1 = right/CW, 0 = not yet decided.
         self.turn_dir = 0
-        self.first_known_location = FirstKnownLocation()
         # Recorded corner targets from lap 1, replayed on laps 2-3.
         self._corner_history: list = []
 
-        # Corner K-turn recovery state.
-        #   `_pending_corner` — target of the most recent corner
-        #      dispatch (or None if the last dispatch wasn't a corner
-        #      or has been fully acknowledged as arrived).
-        #   `_recovery_stage` — 0 = idle, 1 = backup published, 2 = corner
-        #      re-published after a backup.
-        #   `_corner_retries` — number of backup+retry cycles spent on
-        #      the current corner (reset when a new corner is dispatched).
-        # self._pending_corner: Optional[Tuple[float, float, float]] = None
-        # self._recovery_stage: int = 0
-        # self._corner_retries: int = 0
-
         # Button state
+        self.declare_parameter('wait_for_start', True)
         self.wait_for_start = bool(
             self.get_parameter('wait_for_start').value)
         self.start_pressed = not self.wait_for_start
@@ -182,10 +121,16 @@ class OpenMission(Node):
             self._tick_not_ready()
         elif self.state == State.WAITING_FOR_START:
             self._tick_waiting_for_start()
+        elif self.state == State.FIND_FIRST_CORNER:
+            self._tick_find_first_corner()
         elif self.state == State.FIRST_CORNER:
             self._tick_first_corner()
-        elif self.state == State.FIRST_LAP:
-            self._tick_first_lap()
+        elif self.state == State.FIND_NEXT_CORNER:
+            self._tick_find_next_corner()
+        elif self.state == State.NEXT_CORNER:
+            self._tick_next_corner()
+        elif self.state == State.NEXT_LAPS:
+            self._tick_next_laps()
         elif self.state == State.RETURNING_HOME:
             pass   # arrival handled by on_arrived
         elif self.state == State.DONE:
@@ -224,41 +169,105 @@ class OpenMission(Node):
     def _tick_waiting_for_start(self) -> None:
         if not self.start_pressed:
             return
-        self._transition(State.FIRST_CORNER)
+        self._transition(State.FIND_FIRST_CORNER)
 
-    def _tick_first_corner(self) -> None:
+    def _tick_find_first_corner(self) -> None:
+        if (self.waiting_for_arrival):
+            return
         pose = self._robot_pose()
         if pose is None:
             return
-        rx, ry, yaw = pose
-        self.first_known_location.front = self.lidar.front_distance()
-        self.first_known_location.left = self.lidar.left_min_distance()
-        self.first_known_location.right = self.lidar.right_min_distance()
-        self.first_known_location.angle_of_longest_distance = self.lidar.longest_forward_ray_angle()
-        
+        front = self.lidar.front_distance()
+        left = self.lidar.left_min_distance()
+        right = self.lidar.right_min_distance()
+        angle = self.lidar.longest_forward_ray_angle()
+
         # now we check if we know the direction
         lines = self.camera.detect_direction()
         if lines is not None:
             close, far = lines
-            self.turn_dir = +1 if close[0] == LINE_ORANGE else -1\
+            self.turn_dir = +1 if close[0] == LINE_ORANGE else -1
+            self._transition(State.FIRST_CORNER)
+            return
+        if angle is not None and abs(angle) > math.pi / 18:
+            # if the widest-opening angle is greater than 10 degrees
+            # then I see a corner
+            self.turn_dir = +1 if angle > 0 else -1
+            self._transition(State.FIRST_CORNER)
+            return
+        # Neither line nor lidar-corner yet — keep creeping forward
+        # (short hop) and try again next tick.
+        dyn = self.lidar.forward_edge_waypoint(pose, max_distance=0.3)
+        if dyn is None:
+            self.get_logger().info(
+                f'no line in view (turn_dir={self.turn_dir}) — '
+                f'no progress can be made')
+            return
+        self._publish_waypoint(*dyn)
+
+
+    def _tick_first_corner(self) -> None:
+        # One-shot: don't republish while Nav2 is still driving toward
+        # the current goal. on_arrived clears the flag when Nav2 reports
+        # success or failure.
+        if self.waiting_for_arrival:
+            return
+        pose = self._robot_pose()
+        if pose is None:
+            return
+        rx, ry, yaw = pose
+        front = self.lidar.front_distance()
+        if front is None:
+            return
+        # Pick the wall on the turn side.
+        side_dist = self.lidar.left_min_distance() if self.turn_dir > 0 else self.lidar.right_min_distance()
+        if side_dist is None:
+            return
+        # Offsets in the robot's own frame.
+        f = front - 0.6                         # metres forward
+        l = self.turn_dir * (side_dist - 0.3)       # +left / -right
+        # Project into map frame.
+        wp_x = rx + f * math.cos(yaw) - l * math.sin(yaw)
+        wp_y = ry + f * math.sin(yaw) + l * math.cos(yaw)
+        # _publish_waypoint sets self.last_waypoint after the actual
+        # publish; don't set it here or the 5cm dedup skips us.
+        self._publish_waypoint(wp_x, wp_y)
+
+    def _tick_find_next_corner(self) -> None:
+        if (self.waiting_for_arrival):
+            return
+        pose = self._robot_pose()
+        if pose is None:
+            return
+        front = self.lidar.front_distance()
+        if front is None or front < pose[1]+self.turn_dir*2.4 or front < pose[0]+self.turn_dir*2.4:
+            dyn = self.lidar.forward_edge_waypoint(pose, max_distance=1)
+            if dyn is None:
+                self.get_logger().info(
+                    f'no line in view (turn_dir={self.turn_dir}) — '
+                    f'no progress can be made')
+                return
+            self._publish_waypoint(*dyn)
         else:
-            self.turn_dir = self.first_known_location.angle_of_longest_distance / math.abs(self.first_known_location.angle_of_longest_distance) 
-        
-        self._publish_waypoint(self.first_known_location.front - 0.6, self.first_known_location.left + 0.3)
-        self.get_logger().info(
-            f'front-0.6={self.first_known_location.front - 0.6:.2f}m, '
-            f'left+0.3={self.first_known_location.left + 0.3:.2f}m')
-        self._publish_waypoint(self.first_known_location.front - 0.3, self.first_known_location.left + 0.6, math.pi/2)
-        self.get_logger().info(
-            f'front-0.3={self.first_known_location.front - 0.3:.2f}m, '
-            f'left+0.6={self.first_known_location.left + 0.6:.2f}m')
-        
-        # TODO: logic for checking if the sensors are in agreement
+            self._transition(NEXT_CORNER)
+            
+
+    def _tick_next_corner(self) -> None:
+        if self.waiting_for_arrival:
+            return
+        if self.corners_done % 4 == 0:
+            self._publish_waypoint(pose[0], pose[1], self.turn_dir*math.pi/2*(self.corners_done % 4))
+        elif self.corners_done % 4 == 1:
+            self._publish_waypoint(pose[0], pose[1]+self.turn_dir*2.4, self.turn_dir*math.pi/2*(self.corners_done % 4))
+        elif self.corners_done % 4 == 2:
+            self._publish_waypoint(pose[0]+self.turn_dir*2.4, pose[1]+self.turn_dir*2.4, self.turn_dir*math.pi/2*(self.corners_done % 4))
+        elif self.corners_done % 4 == 3:
+            self._publish_waypoint(pose[0]+self.turn_dir*2.4, pose[1], self.turn_dir*math.pi/2*(self.corners_done % 4))
+            
+            
 
 
-
-    def _tick_first_lap(self) -> None:
-        # Stub — no logic yet.
+    def _tick_next_laps(self) -> None:
         pass
 
     def _send_next_waypoint(self) -> None:
@@ -266,231 +275,65 @@ class OpenMission(Node):
         # below. Leaves callers (on_arrived, _attempt_corner_recovery,
         # _first_corner_guard) safe to invoke while the new state
         # machine is being built.
-        pass
+        if self.state == State.FIND_FIRST_CORNER:
+            pose = self._robot_pose()
+            if pose is None:
+                return
+            dyn = self.lidar.forward_edge_waypoint(pose, max_distance=0.3)
+            if dyn is None:
+                self.get_logger().info(
+                    f'no line in view (turn_dir={self.turn_dir}) — '
+                    f'no progress can be made')
+                return
+            self._publish_waypoint(*dyn)
 
     # ================================================================
-    # Waypoint dispatch — event-driven (called from tick transitions
-    # and from on_arrived).
+    # Endgame: return to origin
     # ================================================================
-    # def _send_next_waypoint(self) -> None:
-    #     if self.state != State.DRIVING:
-    #         return
-
-    #     pose = self._robot_pose()
-    #     if pose is not None:
-    #         rx, ry, yaw = pose
-    #         self.get_logger().info(
-    #             f'-- dispatch: pose=({rx:.2f}, {ry:.2f}) '
-    #             f'yaw={math.degrees(yaw):.0f}° '
-    #             f'corners={self.corners_done}/{CORNERS_PER_RACE} '
-    #             f'turn_dir={self.turn_dir}')
-
-    #     # Replay mode: after lap 1, dispatch one recorded corner target
-    #     # per arrival. Nav2's SmacPlannerHybrid plans the ackermann arc
-    #     # from wherever the robot is to the next stored waypoint.
-    #     if (self.corners_done >= CORNERS_PER_LAP
-    #             and len(self._corner_history) == CORNERS_PER_LAP):
-    #         self._dispatch_replay()
-    #         return
-
-    #     lines = self.camera.detect_direction()
-
-    #     # No line in view. Two sub-cases:
-    #     #   (a) lidar sees a wall close ahead AND we know the driving
-    #     #       direction — camera lost the line right at the corner,
-    #     #       so fire the geometric corner turn using turn_dir.
-    #     #   (b) otherwise — fall back to lidar's forward-edge waypoint
-    #     #       so the robot keeps moving until a line reappears.
-    #     if lines is None:
-    #         if pose is None:
-    #             return
-    #         rx, ry, yaw = pose
-    #         front = self.lidar.front_distance()
-
-    #         if (self.turn_dir != 0
-    #                 and front is not None
-    #                 and front < self.first_corner_front_m):
-    #             self.get_logger().warn(
-    #                 f'lidar-only corner (front={front:.2f}m, '
-    #                 f'turn_dir={self.turn_dir:+d})')
-    #             self._execute_corner_turn(rx, ry, yaw, None)
-    #             return
-
-    #         dyn = self.lidar.forward_edge_waypoint(
-    #             pose, max_distance=self.exploration_step_m)
-    #         if dyn is None:
-    #             self.get_logger().info(
-    #                 f'no line in view (turn_dir={self.turn_dir}) — '
-    #                 f'no progress can be made')
-    #             return
-    #         self.get_logger().info(
-    #             f'no line in view (turn_dir={self.turn_dir}) — '
-    #             f'forward-edge at ({dyn[0]:.2f}, {dyn[1]:.2f})')
-    #         self._publish_waypoint(*dyn)
-    #         return
-
-    #     close, far = lines
-
-    #     # First line ever seen commits driving direction.
-    #     if self.turn_dir == 0:
-    #         self.turn_dir = +1 if close[0] == LINE_ORANGE else -1
-    #         self.get_logger().info(
-    #             f'direction set from {close[0]}: turn_dir={self.turn_dir}')
-
-    #     if pose is None:
-    #         return
-    #     rx, ry, yaw = pose
-
-    #     # Lidar-based corner trigger — fires when the inner-wall corner
-    #     # is visible in the scan. Independent of line proximity.
-    #     if self.turn_dir != 0 and self._inner_corner_visible():
-    #         self.get_logger().info(
-    #             f'lidar inner-corner visible, '
-    #             f'turn_dir={self.turn_dir:+d})')
-    #         # self._execute_corner_turn(rx, ry, yaw, close)
-    #         # return
-
-    #     # Straight-following: prefer the far line as the target; fall
-    #     # back to the close one.
-    #     target = far if far is not None else close
-    #     kind = 'far' if far is not None else 'close'
-    #     x, y = target[1], target[2]
-    #     self.last_closest_line = close
-
-    #     self.get_logger().info(f'{kind} waypoint: ({x:.2f}, {y:.2f})')
-    #     self._publish_waypoint(x, y)
-
-    # # ================================================================
-    # # Corner trigger: lidar sees the inner-wall corner
-    # # ================================================================
-    # def _inner_corner_visible(self) -> bool:
-    #     """True when the lidar sees an opening at the turn-side
-    #     diagonal materially larger than the side-wall range — i.e.
-    #     the robot is aligned with the inner wall's convex corner and
-    #     Nav2 can plan around it. Guarded by a front-distance gate so
-    #     far-away detections don't fire the trigger prematurely."""
-    #     if self.turn_dir == 0:
-    #         return False
-    #     front = self.lidar.front_distance()
-    #     if front is None or front > self.inner_corner_front_max_m:
-    #         return False
-    #     diag = self.lidar.median_in_arc(self.turn_dir * math.pi / 4.0)
-    #     side = self.lidar.median_in_arc(self.turn_dir * math.pi / 2.0)
-    #     if diag is None or side is None:
-    #         return False
-    #     return diag > side + self.inner_corner_diag_margin_m
-
-    # ================================================================
-    # Corner strategy: one waypoint offset from the estimated corner
-    # ================================================================
-    # def _execute_corner_turn(
-    #     self,
-    #     rx: float, ry: float, yaw: float,
-    #     close: Optional[Tuple[str, float, float]],
-    # ) -> None:
-    #     # Snap outgoing yaw to the nearest cardinal — WRO straights run
-    #     # along the map axes.
-    #     new_yaw = yaw + self.turn_dir * math.pi / 2.0
-    #     new_yaw = round(new_yaw / (math.pi / 2.0)) * (math.pi / 2.0)
-
-    #     # Estimate the corner point from the lidar range at the
-    #     # turn-side diagonal (the ray that hits the inner obstacle's
-    #     # convex corner). Falls back to the front distance ahead of
-    #     # the robot if the diagonal reading isn't available.
-    #     corner_angle = self.turn_dir * math.pi / 4.0
-    #     corner_range = self.lidar.median_in_arc(corner_angle)
-    #     corner_axis = yaw + corner_angle
-    #     if corner_range is None:
-    #         corner_range = self.lidar.front_distance()
-    #         corner_axis = yaw
-    #     if corner_range is None:
-    #         corner_range = 1.0
-    #     cx = rx + corner_range * math.cos(corner_axis)
-    #     cy = ry + corner_range * math.sin(corner_axis)
-
-    #     # Waypoint = corner + LEAD along new heading
-    #     #                   + LATERAL perpendicular on the safe side.
-    #     # Safe side (away from the inner obstacle) is opposite the
-    #     # turn direction relative to the new heading.
-    #     lateral_yaw = new_yaw - self.turn_dir * math.pi / 2.0
-    #     tx = (cx
-    #           + self.corner_lead_m * math.cos(new_yaw)
-    #           + self.corner_lateral_m * math.cos(lateral_yaw))
-    #     ty = (cy
-    #           + self.corner_lead_m * math.sin(new_yaw)
-    #           + self.corner_lateral_m * math.sin(lateral_yaw))
-
-    #     self.get_logger().info(
-    #         f'corner (turn_dir={self.turn_dir:+d}) '
-    #         f'estimated at ({cx:.2f}, {cy:.2f}) -> '
-    #         f'({tx:.2f}, {ty:.2f}) yaw={math.degrees(new_yaw):.0f}° '
-    #         f'[lead={self.corner_lead_m:.2f}m, '
-    #         f'lateral={self.corner_lateral_m:.2f}m]')
-
-    #     # Record for lap 2-3 replay.
-    #     self._record_replay_target(tx, ty, new_yaw)
-
-    #     self._advance_corner(rx, ry, yaw, new_yaw)
-    #     if close is not None:
-    #         self.last_closest_line = close
-
-    #     # `_finish_lap` may have published the endgame target already.
-    #     if self.state != State.DRIVING:
-    #         return
-    #     # Stash the corner target so on_arrived can K-turn recover if
-    #     # Nav2 reports it unreachable. Reset the retry counter for the
-    #     # new corner.
-    #     self._pending_corner = (tx, ty, new_yaw)
-    #     self._recovery_stage = 0
-    #     self._corner_retries = 0
-    #     self._publish_waypoint(tx, ty, yaw=new_yaw)
-
-    # # ================================================================
-    # # Endgame: return to origin
-    # # ================================================================
-    # def _finish_lap(self) -> None:
-    #     self._transition(State.RETURNING_HOME)
-    #     self.get_logger().info(
-    #         f'lap complete — returning to origin. '
-    #         f'corners={self.corners_done}')
-    #     self._publish_waypoint(0.0, 0.0, yaw=0.0)
+    def _finish_lap(self) -> None:
+        self._transition(State.RETURNING_HOME)
+        self.get_logger().info(
+            f'lap complete — returning to origin. '
+            f'corners={self.corners_done}')
+        self._publish_waypoint(0.0, 0.0, yaw=0.0)
 
     # # ================================================================
     # # Waypoint publishing
     # # ================================================================
-    # def _publish_waypoint(
-    #     self, x: float, y: float, yaw: Optional[float] = None,
-    # ) -> None:
-    #     # Skip if the new target is within 5 cm of the last one.
-    #     if self.last_waypoint is not None:
-    #         rx, ry = self.last_waypoint
-    #         if math.hypot(y - ry, x - rx) <= 0.05:
-    #             self.get_logger().info('Too close to publish new waypoint')
-    #             return
+    def _publish_waypoint(
+        self, x: float, y: float, yaw: Optional[float] = None,
+    ) -> None:
+        # Skip if the new target is within 5 cm of the last one.
+        if self.last_waypoint is not None:
+            rx, ry = self.last_waypoint
+            if math.hypot(y - ry, x - rx) <= 0.05:
+                self.get_logger().info(
+                    f'Too close to publish new waypoint: ({x:.2f}, {y:.2f})')
+                return
 
-    #     # Default yaw: face the direction of travel.
-    #     if yaw is None:
-    #         pose = self._robot_pose()
-    #         if pose is not None:
-    #             rx, ry, _ = pose
-    #             yaw = math.atan2(y - ry, x - rx)
-    #         else:
-    #             yaw = 0.0
+        # Default yaw: face the direction of travel.
+        if yaw is None:
+            pose = self._robot_pose()
+            if pose is not None:
+                rx, ry, _ = pose
+                yaw = math.atan2(y - ry, x - rx)
+            else:
+                yaw = 0.0
 
-    #     p = PoseStamped()
-    #     p.header.frame_id = 'map'
-    #     p.header.stamp = self.get_clock().now().to_msg()
-    #     p.pose.position.x = float(x)
-    #     p.pose.position.y = float(y)
-    #     p.pose.orientation.z = math.sin(yaw / 2.0)
-    #     p.pose.orientation.w = math.cos(yaw / 2.0)
+        p = PoseStamped()
+        p.header.frame_id = 'map'
+        p.header.stamp = self.get_clock().now().to_msg()
+        p.pose.position.x = float(x)
+        p.pose.position.y = float(y)
+        p.pose.orientation.z = math.sin(yaw / 2.0)
+        p.pose.orientation.w = math.cos(yaw / 2.0)
 
-    #     self.waiting_for_arrival = True
-    #     self.pub.publish(p)
-    #     self.last_waypoint = (x, y)
-    #     self.get_logger().info(
-    #         f'published waypoint: ({x:.2f}, {y:.2f}) '
-    #         f'yaw={math.degrees(yaw):.0f}°')
+        self.waiting_for_arrival = True
+        self.pub.publish(p)
+        self.last_waypoint = (x, y)
+        self.get_logger().info(
+            f'published waypoint: ({x:.2f}, {y:.2f}) '
+            f'yaw={math.degrees(yaw):.0f}°')
 
     # # ================================================================
     # # Corner counting + replay
@@ -540,10 +383,57 @@ class OpenMission(Node):
     # # Arrival + start-button callbacks
     # # ================================================================
     def on_arrived(self, msg: Bool) -> None:
-        pass
-    #     if not self.waiting_for_arrival:
-    #         return
-    #     self.waiting_for_arrival = False
+        # Always clear the in-flight flag first — every tick guards on
+        # it, so leaving it True would deadlock the mission.
+        self.waiting_for_arrival = False
+
+        if self.state == State.FIND_FIRST_CORNER:
+            if not msg.data:
+                # TODO plan recovery
+                # failed to reach destination
+                return
+
+        if self.state == State.FIRST_CORNER:
+            if not msg.data:
+                # TODO plan recovery
+                # failed to reach destination
+                return
+            if self.last_waypoint is None:
+                # Should never happen (arrival implies we published),
+                # but guard anyway so we don't TypeError on unpack.
+                self._transition(State.FIND_NEXT_CORNER)
+                return
+            wp_x, wp_y = self.last_waypoint
+            self._corner_history.append([wp_x, wp_y])
+            self.corners_done += 1
+            self.get_logger().info(
+                f'first-corner arrived at ({wp_x:.2f}, {wp_y:.2f}) '
+                f'[turn_dir={self.turn_dir:+d}]')
+            self._transition(State.FIND_NEXT_CORNER)
+
+        if self.state == State.FIND_NEXT_CORNER:
+            pass
+
+        if self.state == State.NEXT_CORNER:
+            if not msg.data:
+                # TODO plan recovery
+                # failed to reach destination
+                return
+            if self.last_waypoint is None:
+                # Should never happen (arrival implies we published),
+                # but guard anyway so we don't TypeError on unpack.
+                self._transition(State.FIND_NEXT_CORNER)
+                return
+            wp_x, wp_y = self.last_waypoint
+            self._corner_history.append([wp_x, wp_y])
+            self.corners_done += 1
+            self.get_logger().info(
+                f'first-corner arrived at ({wp_x:.2f}, {wp_y:.2f}) '
+                f'[turn_dir={self.turn_dir:+d}]')
+            if self.corners_done == 4:
+                self._transition(State.NEXT_LAPS)
+            else:
+                self._transition(State.FIND_NEXT_CORNER)
 
     #     # -----------------------------------------------------------------
     #     # Failure path: K-turn recovery for corners.

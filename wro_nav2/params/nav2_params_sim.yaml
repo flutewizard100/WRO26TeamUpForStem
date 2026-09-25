@@ -53,20 +53,23 @@ amcl:
     z_rand: 0.5
     z_short: 0.05
     scan_topic: /scan
-    # Auto-seed AMCL at startup so the map->odom transform exists before
-    # Nav2's costmaps try to activate. Without this, global_costmap's
-    # activation times out waiting for the `map` frame and the whole
-    # navigation lifecycle group aborts.
-    # Values match the sim spawn pose (see wro_sim/launch/sim.launch.py:
-    #   x=0, y=1.20, yaw=3.14159 — robot centered in the north
-    #   corridor of the narrow (0.60 m) map, facing west). Update
-    #   both together if you move the spawn.
+    # Auto-seed AMCL at startup so the map->odom transform exists
+    # before Nav2's costmaps activate. Not exercised in the current
+    # sim (SLAM Toolbox owns map->odom, AMCL isn't launched), but
+    # kept in place for when we swap to localization mode against a
+    # saved map.
+    #
+    # Values pin the robot at the origin — matches the real-hardware
+    # convention that odom = map = (0, 0, 0) at boot. The sim spawns
+    # the robot at Gazebo world (0, 1.20, yaw=π) but SLAM anchors
+    # its map frame at that spawn, so `map → base_link` is still
+    # (0, 0, 0) once SLAM initialises.
     set_initial_pose: true
     initial_pose:
       x: 0.0
-      y: 1.20
+      y: 0.0
       z: 0.0
-      yaw: 3.14159
+      yaw: 0.0
 
 bt_navigator:
   ros__parameters:
@@ -205,6 +208,19 @@ lifecycle_manager_slam:
     autostart: true
     bond_timeout: 0.0
     node_names: ["slam_toolbox"]
+
+# Disable bond monitoring for Nav2's own lifecycle manager. Nav2's
+# navigation_launch.py names its manager `lifecycle_manager_navigation`
+# and reads params from this file under that key. Default is
+# bond_timeout=4.0 with respawn-on-loss, which can hang the whole
+# stack at "Creating bond timer..." if any managed node stalls even
+# briefly on a slow machine. Match the SLAM manager: no bonds, no
+# respawn chatter.
+lifecycle_manager_navigation:
+  ros__parameters:
+    autostart: true
+    bond_timeout: 0.0
+    attempt_respawn_reconnection: false
 
 local_costmap:
   local_costmap:

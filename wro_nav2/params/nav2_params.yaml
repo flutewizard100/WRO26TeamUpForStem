@@ -70,6 +70,18 @@ lifecycle_manager_slam:
     bond_timeout: 30.0
     node_names: ["slam_toolbox"]
 
+# Disable bond monitoring for Nav2's own lifecycle manager. Nav2's
+# navigation_launch.py names its manager `lifecycle_manager_navigation`
+# and reads params from this file under that key. Default is
+# bond_timeout=4.0 with respawn-on-loss, which can hang the whole
+# stack at "Creating bond timer..." if any managed node stalls even
+# briefly on a slow machine.
+lifecycle_manager_navigation:
+  ros__parameters:
+    autostart: true
+    bond_timeout: 0.0
+    attempt_respawn_reconnection: false
+
 controller_server:
   ros__parameters:
     use_sim_time: false
